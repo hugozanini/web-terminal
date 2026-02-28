@@ -9,12 +9,11 @@ interface CatalogStore extends CatalogData {
 }
 
 export const useCatalogStore = create<CatalogStore>((set) => ({
-  coffeeBeans: [],
-  shipments: [],
-  orders: [],
+  datasets: [],
+  dataSources: [],
   lineage: [],
-  runs: [],
-  logs: [],
+  pipelineRuns: [],
+  qualityChecks: [],
   costs: [],
   initialized: false,
 

@@ -1,97 +1,181 @@
+import { useState, useMemo } from 'react';
+import { DollarSign, TrendingUp, BarChart3, Database } from 'lucide-react';
+import { PageHeader } from '../layout/PageHeader';
+import { SearchInput } from '../ui/SearchInput';
+import { FilterChips } from '../ui/FilterChips';
+import { DataTable, type Column } from '../ui/DataTable';
+import { StatCard } from '../ui/StatCard';
 import { useCatalogData } from '../../hooks/useCatalogData';
-import { DollarSign, TrendingUp, PieChart } from 'lucide-react';
+import type { CostEntry } from '../../data/types';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+
+const categoryColors: Record<string, string> = {
+  Storage: 'bg-blue-400',
+  Compute: 'bg-purple-400',
+  Query: 'bg-amber-400',
+  Transfer: 'bg-teal-400',
+  Licensing: 'bg-red-400',
+  Infrastructure: 'bg-emerald-400',
+};
+
+const categoryOptions = [
+  { value: 'Storage', label: 'Storage' },
+  { value: 'Compute', label: 'Compute' },
+  { value: 'Query', label: 'Query' },
+  { value: 'Transfer', label: 'Transfer' },
+  { value: 'Licensing', label: 'Licensing' },
+  { value: 'Infrastructure', label: 'Infrastructure' },
+];
+
+const columns: Column<CostEntry>[] = [
+  {
+    key: 'date',
+    header: 'Date',
+    width: '110px',
+    sortable: true,
+    sortValue: (row) => new Date(row.date).getTime(),
+    render: (row) => <span className="text-xs text-cream-600">{new Date(row.date).toLocaleDateString()}</span>,
+  },
+  {
+    key: 'category',
+    header: 'Category',
+    width: '120px',
+    sortable: true,
+    sortValue: (row) => row.category,
+    render: (row) => (
+      <span className="inline-flex items-center gap-1.5 text-xs">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${categoryColors[row.category] || 'bg-cream-400'}`} />
+        {row.category}
+      </span>
+    ),
+  },
+  {
+    key: 'subcategory',
+    header: 'Subcategory',
+    width: '160px',
+    render: (row) => <span className="text-xs font-medium text-cream-800">{row.subcategory}</span>,
+  },
+  {
+    key: 'entityType',
+    header: 'Entity Type',
+    width: '100px',
+    sortable: true,
+    sortValue: (row) => row.entityType,
+    render: (row) => <span className="text-xs text-cream-500">{row.entityType}</span>,
+  },
+  {
+    key: 'description',
+    header: 'Description',
+    render: (row) => <span className="text-xs text-cream-600 line-clamp-1">{row.description}</span>,
+  },
+  {
+    key: 'amount',
+    header: 'Amount',
+    width: '120px',
+    sortable: true,
+    sortValue: (row) => row.amount,
+    render: (row) => (
+      <span className="text-xs font-semibold text-cream-900">
+        ${row.amount.toLocaleString()}
+      </span>
+    ),
+  },
+];
 
 export function Costs() {
-  const { costs } = useCatalogData();
+  const { costs, datasets } = useCatalogData();
+  useDocumentTitle('Costs');
+  const [search, setSearch] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
 
-  // Calculate totals by category
-  const totalsByCategory = costs.reduce((acc, cost) => {
-    acc[cost.category] = (acc[cost.category] || 0) + cost.amount;
-    return acc;
-  }, {} as Record<string, number>);
+  const totalsByCategory = useMemo(() => {
+    const totals: Record<string, number> = {};
+    costs.forEach((c) => { totals[c.category] = (totals[c.category] || 0) + c.amount; });
+    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  }, [costs]);
 
-  const totalCost = Object.values(totalsByCategory).reduce((sum, val) => sum + val, 0);
+  const totalCost = totalsByCategory.reduce((s, [, v]) => s + v, 0);
+  const maxCategory = totalsByCategory[0]?.[1] || 1;
+  const costPerDataset = datasets.length ? Math.round(totalCost / datasets.length) : 0;
 
-  const sortedCosts = [...costs].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  const filtered = useMemo(() => {
+    let result = costs;
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((c) =>
+        c.subcategory.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q)
+      );
+    }
+    if (categories.length > 0) {
+      result = result.filter((c) => categories.includes(c.category));
+    }
+    return [...result].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [costs, search, categories]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Cost Analysis</h2>
-        <span className="text-sm text-gray-500">{costs.length} entries</span>
+    <div>
+      <PageHeader
+        title="Infrastructure Costs"
+        subtitle={`${filtered.length} of ${costs.length} entries`}
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <StatCard icon={DollarSign} label="Total Cost" value={`$${totalCost.toLocaleString()}`} />
+        <StatCard
+          icon={TrendingUp}
+          label="Largest Category"
+          value={totalsByCategory[0]?.[0] || '--'}
+          detail={totalsByCategory[0] ? `$${totalsByCategory[0][1].toLocaleString()}` : undefined}
+        />
+        <StatCard
+          icon={Database}
+          label="Cost per Dataset"
+          value={`$${costPerDataset.toLocaleString()}`}
+          detail="Average"
+        />
+        <StatCard
+          icon={BarChart3}
+          label="Avg per Entry"
+          value={costs.length ? `$${Math.round(totalCost / costs.length).toLocaleString()}` : '$0'}
+        />
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4 shadow">
-          <div className="flex items-center justify-between mb-2">
-            <DollarSign className="w-8 h-8" />
-            <PieChart className="w-6 h-6 opacity-75" />
-          </div>
-          <p className="text-sm opacity-90">Total Cost</p>
-          <p className="text-2xl font-bold">${totalCost.toLocaleString()}</p>
-        </div>
-
-        {Object.entries(totalsByCategory)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
-          .map(([category, amount]) => (
-            <div key={category} className="bg-white rounded-lg p-4 shadow border border-gray-200">
-              <div className="flex items-center justify-between mb-2">
-                <TrendingUp className="w-6 h-6 text-gray-400" />
+      <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4 mb-6">
+        <h3 className="text-sm font-semibold text-cream-800 mb-3">Cost by Category</h3>
+        <div className="space-y-2.5">
+          {totalsByCategory.map(([category, amount]) => (
+            <div key={category}>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-cream-700 font-medium">{category}</span>
+                <span className="text-cream-500">${amount.toLocaleString()} ({((amount / totalCost) * 100).toFixed(1)}%)</span>
               </div>
-              <p className="text-sm text-gray-600">{category}</p>
-              <p className="text-xl font-bold text-gray-900">${amount.toLocaleString()}</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {((amount / totalCost) * 100).toFixed(1)}% of total
-              </p>
+              <div className="h-2 bg-cream-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${categoryColors[category] || 'bg-cream-400'}`}
+                  style={{ width: `${(amount / maxCategory) * 100}%` }}
+                />
+              </div>
             </div>
           ))}
+        </div>
       </div>
 
-      {/* Cost Entries */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-gray-800">Recent Costs</h3>
-        {sortedCosts.map((cost) => (
-          <div key={cost.id} className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h4 className="font-medium text-gray-900">{cost.subcategory}</h4>
-                <p className="text-sm text-gray-600">{cost.category}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-gray-900">
-                  ${cost.amount.toLocaleString()}
-                </p>
-                <p className="text-xs text-gray-500">{cost.currency}</p>
-              </div>
-            </div>
-
-            <p className="text-sm text-gray-600 mb-2">{cost.description}</p>
-
-            {cost.breakdown && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <p className="text-xs text-gray-500 mb-2">Breakdown:</p>
-                <div className="space-y-1">
-                  {cost.breakdown.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{item.item}</span>
-                      <span className="text-gray-900">${item.cost.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-3 flex justify-between items-center text-xs text-gray-500">
-              <span>{cost.entityType}: {cost.entityId.substring(0, 8)}</span>
-              <span>{new Date(cost.date).toLocaleDateString()}</span>
-            </div>
-          </div>
-        ))}
+      <div className="space-y-4 mb-6">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search costs..."
+        />
+        <FilterChips options={categoryOptions} selected={categories} onChange={setCategories} />
       </div>
+
+      <DataTable
+        columns={columns}
+        data={filtered}
+        pageSize={20}
+        keyExtractor={(row) => row.id}
+      />
     </div>
   );
 }
