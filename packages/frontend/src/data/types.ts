@@ -22,6 +22,16 @@ export interface Dataset {
   source: string;
   createdAt: Date;
   sampleData: Record<string, unknown>[];
+  qualityDashboard: QualityDashboard;
+}
+
+export interface QualityDashboard {
+  checksFailed: number;
+  checksWarned: number;
+  healthScore: number;
+  activeChecks: number;
+  avgAlertsPerDay: number;
+  dailyChecks: { date: string; pass: number; warn: number; fail: number }[];
 }
 
 export interface DataSource {

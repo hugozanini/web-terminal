@@ -15,6 +15,10 @@ import {
   TrendingUp,
   TrendingDown,
   Table2,
+  ShieldCheck,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -30,7 +34,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { TagPill, getTagVariant, getDatasetTypeVariant } from '../ui/TagPill';
 import { DataTable, type Column } from '../ui/DataTable';
@@ -98,13 +102,17 @@ const criticalityConfig: Record<string, { color: string; bg: string; border: str
   Low:      { color: 'text-cream-600', bg: 'bg-cream-50', border: 'border-cream-200' },
 };
 
-type TabKey = 'overview' | 'data' | 'lineage' | 'pipelines' | 'costs';
+type TabKey = 'overview' | 'data' | 'quality' | 'lineage' | 'pipelines' | 'costs';
 
-function PipelineLink({ run, pipelineList }: { run: PipelineRun; pipelineList: { id: string; name: string }[] }) {
+function PipelineLink({ run, pipelineList, datasetId, datasetName }: { run: PipelineRun; pipelineList: { id: string; name: string }[]; datasetId?: string; datasetName?: string }) {
   const p = pipelineList.find((pl) => pl.id === run.pipelineId);
   if (p) {
     return (
-      <Link to={`/pipelines/${p.id}`} className="text-xs font-medium font-mono text-brand-700 hover:text-brand-900 hover:underline inline-flex items-center gap-1">
+      <Link
+        to={`/pipelines/${p.id}`}
+        state={datasetId ? { fromDataset: { id: datasetId, name: datasetName } } : undefined}
+        className="text-xs font-medium font-mono text-brand-700 hover:text-brand-900 hover:underline inline-flex items-center gap-1"
+      >
         {run.pipelineName}
         <ExternalLink className="w-3 h-3" />
       </Link>
@@ -113,9 +121,9 @@ function PipelineLink({ run, pipelineList }: { run: PipelineRun; pipelineList: {
   return <span className="text-xs font-medium font-mono">{run.pipelineName}</span>;
 }
 
-function makePipelineColumns(pList: { id: string; name: string }[]): Column<PipelineRun>[] {
+function makePipelineColumns(pList: { id: string; name: string }[], dsId?: string, dsName?: string): Column<PipelineRun>[] {
   return [
-    { key: 'pipeline', header: 'Pipeline', width: '200px', sortable: true, sortValue: (r) => r.pipelineName, render: (r) => <PipelineLink run={r} pipelineList={pList} /> },
+    { key: 'pipeline', header: 'Pipeline', width: '200px', sortable: true, sortValue: (r) => r.pipelineName, render: (r) => <PipelineLink run={r} pipelineList={pList} datasetId={dsId} datasetName={dsName} /> },
     { key: 'run', header: 'Run', width: '120px', render: (r) => <span className="text-xs text-cream-500">{r.runNumber}</span> },
     { key: 'type', header: 'Type', width: '120px', sortable: true, sortValue: (r) => r.type, render: (r) => <span className="text-xs">{r.type}</span> },
     { key: 'status', header: 'Status', width: '90px', sortable: true, sortValue: (r) => r.status, render: (r) => {
@@ -197,6 +205,21 @@ export function DatasetDetail() {
     return { storage, compute, total, storageTrend, computeTrend };
   }, [datasetCosts, costChartData]);
 
+  const costTrendUp = useMemo(() => {
+    if (datasetCosts.length === 0) return null;
+    const now = Date.now();
+    const cutoff15 = now - 15 * 24 * 60 * 60 * 1000;
+    const cutoff30 = now - 30 * 24 * 60 * 60 * 1000;
+    const recent = datasetCosts
+      .filter((c) => { const t = new Date(c.date).getTime(); return t >= cutoff15 && t <= now; })
+      .reduce((s, c) => s + c.amount, 0);
+    const prev = datasetCosts
+      .filter((c) => { const t = new Date(c.date).getTime(); return t >= cutoff30 && t < cutoff15; })
+      .reduce((s, c) => s + c.amount, 0);
+    if (prev === 0 && recent === 0) return null;
+    return recent >= prev;
+  }, [datasetCosts]);
+
   const sampleColumns = useMemo(() => {
     if (!dataset || dataset.sampleData.length === 0) return [];
     return Object.keys(dataset.sampleData[0]);
@@ -222,9 +245,10 @@ export function DatasetDetail() {
   const tabs: { key: TabKey; label: string; count?: number }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'data', label: 'Data' },
+    { key: 'quality', label: 'Quality' },
     { key: 'lineage', label: 'Lineage', count: datasetLineage.nodes.length },
     { key: 'pipelines', label: 'Pipeline Runs', count: datasetPipelines.length },
-    { key: 'costs', label: 'Costs', count: datasetCosts.length },
+    { key: 'costs', label: 'Costs' },
   ];
 
   return (
@@ -311,14 +335,20 @@ export function DatasetDetail() {
               )}
             >
               {t.label}
-              {t.count !== undefined && (
+              {t.key === 'costs' && costTrendUp !== null ? (
+                costTrendUp ? (
+                  <TrendingUp className="w-3.5 h-3.5 text-red-400" />
+                ) : (
+                  <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
+                )
+              ) : t.count !== undefined ? (
                 <span className={clsx(
                   'text-[10px] px-1.5 py-0.5 rounded-full',
                   tab === t.key ? 'bg-brand-100 text-brand-800' : 'bg-cream-100 text-cream-500'
                 )}>
                   {t.count}
                 </span>
-              )}
+              ) : null}
             </button>
           ))}
         </div>
@@ -409,6 +439,128 @@ export function DatasetDetail() {
         )
       )}
 
+      {tab === 'quality' && (() => {
+        const qd = dataset.qualityDashboard;
+        const healthColor = qd.healthScore >= 85 ? 'text-emerald-600' : qd.healthScore >= 70 ? 'text-amber-600' : 'text-red-600';
+        const healthBg = qd.healthScore >= 85 ? 'bg-emerald-50 border-emerald-200' : qd.healthScore >= 70 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
+        return (
+          <div className="space-y-6">
+            {qd.checksFailed > 0 && (
+              <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <p className="text-sm text-red-800">
+                  <span className="font-semibold">{qd.checksFailed} failing check{qd.checksFailed !== 1 ? 's' : ''}</span>
+                  {' '}(last 90 days) -- These need attention to maintain data reliability.
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                <p className="text-xs text-cream-500 mb-1 uppercase tracking-wide">Checks Failed</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-cream-900">{qd.checksFailed}</p>
+                  {qd.checksFailed > 0 && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-600">REVIEW</span>
+                  )}
+                </div>
+                <p className="text-[10px] text-cream-400 mt-1">Last 90 days</p>
+              </div>
+              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                <p className="text-xs text-cream-500 mb-1 uppercase tracking-wide">Checks Warned</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-cream-900">{qd.checksWarned}</p>
+                  {qd.checksWarned > 5 && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-600">REVIEW</span>
+                  )}
+                </div>
+                <p className="text-[10px] text-cream-400 mt-1">Last 90 days</p>
+              </div>
+              <div className={clsx('rounded-xl shadow-card p-4 border', healthBg)}>
+                <p className="text-xs text-cream-500 mb-1 uppercase tracking-wide">Data Health Score</p>
+                <p className={clsx('text-2xl font-bold', healthColor)}>{qd.healthScore}%</p>
+                <p className="text-[10px] text-cream-400 mt-1">Last 90 days</p>
+              </div>
+              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                <p className="text-xs text-cream-500 mb-1 uppercase tracking-wide">Active Checks</p>
+                <p className="text-2xl font-bold text-cream-900">{qd.activeChecks.toLocaleString()}</p>
+                <p className="text-[10px] text-cream-400 mt-1">Last 90 days</p>
+              </div>
+            </div>
+
+            <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-cream-800">All Checks</h3>
+                <div className="flex items-center gap-4 text-[10px]">
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" /> PASS</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block" /> WARN</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block" /> FAIL</span>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={qd.dailyChecks} barCategoryGap="10%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 9, fill: '#a3a3a3' }}
+                    tickFormatter={(v: string) => {
+                      const d = new Date(v);
+                      if (d.getDate() === 1 || d.getDate() === 15) {
+                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      }
+                      return '';
+                    }}
+                    interval={0}
+                  />
+                  <YAxis tick={{ fontSize: 9, fill: '#a3a3a3' }} />
+                  <Tooltip
+                    contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e5e5' }}
+                    labelFormatter={(label) => new Date(String(label)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  />
+                  <Bar dataKey="pass" stackId="a" fill="#34d399" radius={[0, 0, 0, 0]} name="Pass" />
+                  <Bar dataKey="warn" stackId="a" fill="#fbbf24" radius={[0, 0, 0, 0]} name="Warn" />
+                  <Bar dataKey="fail" stackId="a" fill="#f87171" radius={[2, 2, 0, 0]} name="Fail" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+              <h3 className="text-sm font-semibold text-cream-800 mb-3">Activity</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  <div>
+                    <p className="text-sm font-bold text-cream-900">{qd.activeChecks.toLocaleString()}</p>
+                    <p className="text-[10px] text-cream-500">Active checks (last 90 days)</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-blue-500" />
+                  <div>
+                    <p className="text-sm font-bold text-cream-900">{Math.round(qd.activeChecks / 90)}</p>
+                    <p className="text-[10px] text-cream-500">Avg checks per day</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  <div>
+                    <p className="text-sm font-bold text-cream-900">{qd.avgAlertsPerDay}</p>
+                    <p className="text-[10px] text-cream-500">Avg alerts per day</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <div>
+                    <p className="text-sm font-bold text-cream-900">{qd.healthScore}%</p>
+                    <p className="text-[10px] text-cream-500">Overall health</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {tab === 'lineage' && (
         <div className="h-[400px] bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
           {datasetLineage.nodes.length > 0 ? (
@@ -434,7 +586,7 @@ export function DatasetDetail() {
 
       {tab === 'pipelines' && (
         datasetPipelines.length > 0 ? (
-          <DataTable columns={makePipelineColumns(pipelines)} data={datasetPipelines} pageSize={10} keyExtractor={(r) => r.id} />
+          <DataTable columns={makePipelineColumns(pipelines, dataset.id, dataset.displayName)} data={datasetPipelines} pageSize={10} keyExtractor={(r) => r.id} />
         ) : (
           <div className="text-center py-12 text-cream-400 text-sm">
             <Play className="w-8 h-8 mx-auto mb-2 text-cream-300" />

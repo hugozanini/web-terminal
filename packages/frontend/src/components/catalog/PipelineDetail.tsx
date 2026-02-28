@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Play,
@@ -131,6 +131,8 @@ function layoutPipelineGraph(nodes: Node[], edges: Edge[]) {
 export function PipelineDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromDataset = (location.state as { fromDataset?: { id: string; name: string } } | null)?.fromDataset;
   const {
     pipelines, pipelineRuns, datasets,
     addPipelineRun, updatePipelineRun, updatePipeline,
@@ -340,8 +342,8 @@ export function PipelineDetail() {
     return (
       <div className="text-center py-16">
         <p className="text-cream-500">Pipeline not found.</p>
-        <button onClick={() => navigate('/pipelines')} className="text-sm text-brand-600 mt-2 hover:underline">
-          Back to Pipelines
+        <button onClick={() => navigate(fromDataset ? `/datasets/${fromDataset.id}` : '/pipelines')} className="text-sm text-brand-600 mt-2 hover:underline">
+          {fromDataset ? `Back to ${fromDataset.name}` : 'Back to Pipelines'}
         </button>
       </div>
     );
@@ -358,11 +360,11 @@ export function PipelineDetail() {
   return (
     <div>
       <button
-        onClick={() => navigate('/pipelines')}
+        onClick={() => navigate(fromDataset ? `/datasets/${fromDataset.id}` : '/pipelines')}
         className="inline-flex items-center gap-1.5 text-sm text-cream-500 hover:text-cream-800 mb-4 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to Pipelines
+        {fromDataset ? `Back to ${fromDataset.name}` : 'Back to Pipelines'}
       </button>
 
       <div className="bg-white border border-cream-200 rounded-xl shadow-card p-6 mb-6">
