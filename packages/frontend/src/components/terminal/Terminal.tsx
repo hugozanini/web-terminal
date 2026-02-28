@@ -40,15 +40,25 @@ export function Terminal({ className = '' }: TerminalProps) {
     // Open terminal in DOM
     term.open(terminalRef.current);
 
-    // Fit terminal to container
-    fit.fit();
+    // Fit terminal to container after a small delay to ensure DOM is ready
+    setTimeout(() => {
+      try {
+        fit.fit();
+      } catch (err) {
+        console.warn('Initial fit failed:', err);
+      }
+    }, 0);
 
     setTerminal(term);
     setFitAddon(fit);
 
     // Handle window resize
     const handleResize = () => {
-      fit.fit();
+      try {
+        fit.fit();
+      } catch (err) {
+        console.warn('Resize fit failed:', err);
+      }
     };
 
     window.addEventListener('resize', handleResize);
@@ -62,14 +72,16 @@ export function Terminal({ className = '' }: TerminalProps) {
 
   // Refit when container size changes
   useEffect(() => {
-    if (fitAddon) {
+    if (fitAddon && terminalRef.current) {
       const resizeObserver = new ResizeObserver(() => {
-        fitAddon.fit();
+        try {
+          fitAddon.fit();
+        } catch (err) {
+          // Ignore resize errors - terminal might not be ready yet
+        }
       });
 
-      if (terminalRef.current) {
-        resizeObserver.observe(terminalRef.current);
-      }
+      resizeObserver.observe(terminalRef.current);
 
       return () => resizeObserver.disconnect();
     }
