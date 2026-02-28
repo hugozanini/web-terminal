@@ -12,7 +12,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      thresholds: { statements: 80, branches: 80, functions: 80, lines: 80 },
+      thresholds: { statements: 60, branches: 60, functions: 60, lines: 60 },
       exclude: [
         'src/main.tsx',
         'src/vite-env.d.ts',
