@@ -14,12 +14,14 @@ export interface Dataset {
   owner: string;
   tags: string[];
   qualityScore: number;
+  criticality: 'Critical' | 'High' | 'Medium' | 'Low';
   freshness: {
     lastUpdated: Date;
     updateFrequency: string;
   };
   source: string;
   createdAt: Date;
+  sampleData: Record<string, unknown>[];
 }
 
 export interface DataSource {
