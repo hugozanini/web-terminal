@@ -20,7 +20,7 @@ import clsx from 'clsx';
 type AssetTab = 'all' | 'datasets' | 'sources' | 'pipelines';
 
 export function Home() {
-  const { datasets, dataSources, pipelineRuns, qualityChecks, costs } = useCatalogData();
+  const { datasets, dataSources, pipelines, qualityChecks, costs } = useCatalogData();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<AssetTab>('all');
   const navigate = useNavigate();
@@ -34,10 +34,10 @@ export function Home() {
   const connectedSources = dataSources.filter((s) => s.connectionStatus === 'Connected').length;
 
   const tabs: { key: AssetTab; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: datasets.length + dataSources.length + pipelineRuns.length },
+    { key: 'all', label: 'All', count: datasets.length + dataSources.length + pipelines.length },
     { key: 'datasets', label: 'Datasets', count: datasets.length },
     { key: 'sources', label: 'Sources', count: dataSources.length },
-    { key: 'pipelines', label: 'Pipelines', count: pipelineRuns.length },
+    { key: 'pipelines', label: 'Pipelines', count: pipelines.length },
   ];
 
   const assetRows = useMemo(() => {
@@ -58,15 +58,15 @@ export function Home() {
       }));
     }
     if (activeTab === 'all' || activeTab === 'pipelines') {
-      pipelineRuns.forEach((r) => rows.push({
-        id: r.id, type: 'Pipeline', name: r.pipelineName,
-        meta: `${r.type} -- ${r.status} -- ${r.recordsProcessed.toLocaleString()} records`,
-        link: '/pipelines',
+      pipelines.forEach((p) => rows.push({
+        id: p.id, type: 'Pipeline', name: p.displayName,
+        meta: `${p.type} -- ${p.lastRunStatus} -- ${p.engine}`,
+        link: `/pipelines/${p.id}`,
       }));
     }
 
     return rows;
-  }, [activeTab, datasets, dataSources, pipelineRuns]);
+  }, [activeTab, datasets, dataSources, pipelines]);
 
   const typeIcons: Record<string, typeof Database> = {
     Dataset: Database, Source: Server, Pipeline: Play,

@@ -30,7 +30,7 @@ export function SearchResults() {
   const [localQuery, setLocalQuery] = useState(query);
   const [activeTab, setActiveTab] = useState<AssetTab>('all');
   const navigate = useNavigate();
-  const { datasets, dataSources, pipelineRuns } = useCatalogData();
+  const { datasets, dataSources, pipelines } = useCatalogData();
   useDocumentTitle(query ? `Search: ${query}` : 'Search');
 
   const allRows = useMemo(() => {
@@ -46,14 +46,14 @@ export function SearchResults() {
       meta: `${s.system} -- ${s.connectionStatus} -- ${s.datasetsCount} datasets`,
       link: '/datasets',
     }));
-    pipelineRuns.forEach((r) => rows.push({
-      id: r.id, type: 'Pipeline', name: r.pipelineName,
-      meta: `${r.type} -- ${r.status} -- ${r.recordsProcessed.toLocaleString()} records`,
-      link: '/pipelines',
+    pipelines.forEach((p) => rows.push({
+      id: p.id, type: 'Pipeline', name: p.displayName,
+      meta: `${p.type} -- ${p.lastRunStatus} -- ${p.engine}`,
+      link: `/pipelines/${p.id}`,
     }));
 
     return rows;
-  }, [datasets, dataSources, pipelineRuns]);
+  }, [datasets, dataSources, pipelines]);
 
   const filtered = useMemo(() => {
     if (!query) return [];

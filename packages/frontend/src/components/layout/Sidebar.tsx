@@ -21,7 +21,7 @@ const navItems = [
   { path: '/', label: 'Home', icon: Home },
   { path: '/datasets', label: 'Datasets', icon: Database, countKey: 'datasets' as const },
   { path: '/lineage', label: 'Lineage', icon: GitBranch },
-  { path: '/pipelines', label: 'Pipelines', icon: Play, countKey: 'pipelineRuns' as const },
+  { path: '/pipelines', label: 'Pipelines', icon: Play, countKey: 'pipelines' as const },
   { path: '/quality', label: 'Quality', icon: ShieldCheck, countKey: 'qualityChecks' as const },
   { path: '/costs', label: 'Costs', icon: DollarSign, countKey: 'costs' as const },
 ];
