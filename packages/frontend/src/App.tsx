@@ -1,53 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Header } from './components/layout/Header';
-import { Navigation } from './components/layout/Navigation';
-import { SplitView } from './components/layout/SplitView';
-import { Terminal } from './components/terminal/Terminal';
-import { TerminalToggle } from './components/terminal/TerminalToggle';
-import { DataSamples } from './components/catalog/DataSamples';
-import { Lineage } from './components/catalog/Lineage';
-import { Runs } from './components/catalog/Runs';
-import { Logs } from './components/catalog/Logs';
+import { Sidebar } from './components/layout/Sidebar';
+import { ContentShell } from './components/layout/ContentShell';
+import { Home } from './components/catalog/Home';
+import { Datasets } from './components/catalog/Datasets';
+import { DatasetDetail } from './components/catalog/DatasetDetail';
+import { Pipelines } from './components/catalog/Pipelines';
+import { PipelineDetail } from './components/catalog/PipelineDetail';
 import { Costs } from './components/catalog/Costs';
+import { SearchResults } from './components/catalog/SearchResults';
 
 function App() {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
 
-  const catalogContent = (
-    <Routes>
-      <Route path="/" element={<DataSamples />} />
-      <Route path="/lineage" element={<Lineage />} />
-      <Route path="/runs" element={<Runs />} />
-      <Route path="/logs" element={<Logs />} />
-      <Route path="/costs" element={<Costs />} />
-    </Routes>
-  );
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '`') {
+        e.preventDefault();
+        setIsTerminalOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        <Header />
-        <Navigation />
-
-        <main className="flex-1 container mx-auto px-4 py-6">
-          <SplitView
-            catalog={catalogContent}
-            terminal={<Terminal />}
-            isTerminalOpen={isTerminalOpen}
-          />
-        </main>
-
-        <TerminalToggle
-          isOpen={isTerminalOpen}
-          onToggle={() => setIsTerminalOpen(!isTerminalOpen)}
+      <div className="flex h-screen overflow-hidden bg-cream-50">
+        <Sidebar
+          isTerminalOpen={isTerminalOpen}
+          onToggleTerminal={() => setIsTerminalOpen(!isTerminalOpen)}
         />
-
-        <footer className="bg-white border-t border-gray-200 py-4">
-          <div className="container mx-auto px-4 text-center text-sm text-gray-600">
-            Happy Coffee © {new Date().getFullYear()} - Brazilian Coffee Export Data Catalog
-          </div>
-        </footer>
+        <ContentShell isTerminalOpen={isTerminalOpen}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/search" element={<SearchResults />} />
+            <Route path="/datasets" element={<Datasets />} />
+            <Route path="/datasets/:id" element={<DatasetDetail />} />
+            <Route path="/pipelines" element={<Pipelines />} />
+            <Route path="/pipelines/:id" element={<PipelineDetail />} />
+            <Route path="/costs" element={<Costs />} />
+          </Routes>
+        </ContentShell>
       </div>
     </BrowserRouter>
   );

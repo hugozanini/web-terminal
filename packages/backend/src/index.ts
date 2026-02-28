@@ -4,22 +4,18 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { handleTerminalWebSocket } from './terminal/websocket-handler.js';
 
-const app = express();
+export const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', message: 'Happy Coffee Backend Server' });
 });
 
-// Create HTTP server
-const server = createServer(app);
+export const server = createServer(app);
 
-// Create WebSocket server for terminal
 const wss = new WebSocketServer({ server, path: '/terminal' });
 
 wss.on('connection', (ws) => {
@@ -27,7 +23,17 @@ wss.on('connection', (ws) => {
   handleTerminalWebSocket(ws);
 });
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`🔌 WebSocket terminal available at ws://localhost:${PORT}/terminal`);
-});
+export function startServer() {
+  return new Promise<void>((resolve) => {
+    server.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`WebSocket terminal available at ws://localhost:${PORT}/terminal`);
+      resolve();
+    });
+  });
+}
+
+const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
+if (isMain) {
+  startServer();
+}

@@ -86,10 +86,10 @@ This starts:
 ### Using the terminal
 
 1. Open http://localhost:5173 in your browser.
-2. Click the floating terminal button in the bottom-right corner.
-3. The page splits: your web UI on the left (60%), a live terminal on the right (40%).
+2. Click the **Terminal** button at the bottom of the sidebar (or press `Cmd+\`` / `Ctrl+\``).
+3. A resizable drawer slides up from the bottom of the content area.
 4. Type commands. This is your real shell -- your PATH, aliases, environment variables, and tools are all available.
-5. Click the button again to hide the terminal.
+5. Click the button again (or use the keyboard shortcut) to hide the terminal.
 
 ## Project structure
 
@@ -99,11 +99,13 @@ web-terminal/
 |   +-- frontend/                  # React application
 |   |   +-- src/
 |   |       +-- components/
-|   |       |   +-- terminal/      # Terminal.tsx, useTerminal.ts, TerminalToggle.tsx
-|   |       |   +-- layout/        # Header, Navigation, SplitView
+|   |       |   +-- terminal/      # Terminal.tsx, useTerminal.ts
+|   |       |   +-- layout/        # Sidebar, ContentShell, PageHeader
 |   |       |   +-- catalog/       # Demo data catalog pages
+|   |       |   +-- ui/            # Reusable UI components (SearchInput, DataTable, etc.)
 |   |       +-- data/              # Types and Faker.js generators (demo)
 |   |       +-- store/             # Zustand store (demo)
+|   |       +-- hooks/             # Custom hooks (useCatalogData, useDocumentTitle)
 |   |
 |   +-- backend/                   # Express + WebSocket server
 |       +-- src/
@@ -116,11 +118,11 @@ web-terminal/
 +-- package.json                   # Workspace root, postinstall script
 ```
 
-The terminal integration lives entirely in three files on the frontend (`Terminal.tsx`, `useTerminal.ts`, `TerminalToggle.tsx`) and three on the backend (`pty-manager.ts`, `websocket-handler.ts`, `types.ts`). Everything else is the demo application.
+The terminal integration lives entirely in two files on the frontend (`Terminal.tsx`, `useTerminal.ts`) and three on the backend (`pty-manager.ts`, `websocket-handler.ts`, `types.ts`). Everything else is the demo application.
 
 ## The demo: Happy Coffee Data Catalog
 
-The included demo UI is a data catalog for a fictional Brazilian coffee exporter. It generates realistic data client-side using Faker.js (seeded for consistency) and provides pages for samples, lineage, processing runs, logs, and costs. The catalog is there to demonstrate the terminal alongside a real-looking web application -- it is not the focus of this project.
+The included demo UI is a data catalog for a fictional Brazilian coffee exporter. It generates realistic data client-side using Faker.js (seeded for consistency) and provides pages for datasets, data sources, lineage, pipelines, quality checks, costs, and a dedicated search results view. The catalog is there to demonstrate the terminal alongside a real-looking web application -- it is not the focus of this project.
 
 ## Build for production
 

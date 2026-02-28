@@ -1,136 +1,130 @@
-// Coffee Bean Sample
-export interface CoffeeBeanSample {
+export interface Dataset {
   id: string;
-  batchNumber: string;
-  variety: 'Arabica' | 'Robusta' | 'Liberica';
-  subVariety: string; // e.g., Bourbon, Catuaí, Mundo Novo
-  origin: {
-    farm: string;
-    region: string;
-    state: string;
-    coordinates: { lat: number; lng: number };
+  name: string;
+  displayName: string;
+  type: 'Table' | 'View' | 'Materialized View' | 'External Table';
+  schema: {
+    database: string;
+    schema: string;
   };
-  harvestDate: Date;
-  processingMethod: 'Natural' | 'Pulped Natural' | 'Washed' | 'Honey';
-  gradeScore: number; // SCA score 0-100
-  moistureContent: number; // percentage
-  defectCount: number;
-  bagWeight: number; // kg
-  certifications: string[];
+  description: string;
+  columns: number;
+  rows: number;
+  sizeBytes: number;
+  owner: string;
+  tags: string[];
+  qualityScore: number;
+  criticality: 'Critical' | 'High' | 'Medium' | 'Low';
+  freshness: {
+    lastUpdated: Date;
+    updateFrequency: string;
+  };
+  source: string;
+  createdAt: Date;
+  sampleData: Record<string, unknown>[];
+  qualityDashboard: QualityDashboard;
 }
 
-// Shipment
-export interface Shipment {
-  id: string;
-  shipmentNumber: string;
-  batchIds: string[];
-  origin: {
-    port: string;
-    city: string;
-    state: string;
-  };
-  destination: {
-    port: string;
-    country: string;
-    customer: string;
-  };
-  containerNumber: string;
-  weight: number; // kg
-  departureDate: Date;
-  estimatedArrival: Date;
-  actualArrival?: Date;
-  status: 'Preparing' | 'In Transit' | 'Customs' | 'Delivered';
-  trackingEvents: TrackingEvent[];
+export interface QualityDashboard {
+  checksFailed: number;
+  checksWarned: number;
+  healthScore: number;
+  activeChecks: number;
+  avgAlertsPerDay: number;
+  dailyChecks: { date: string; pass: number; warn: number; fail: number }[];
 }
 
-export interface TrackingEvent {
-  timestamp: Date;
-  location: string;
-  status: string;
+export interface DataSource {
+  id: string;
+  name: string;
+  type: 'Database' | 'API' | 'File' | 'Stream' | 'IoT';
+  system: string;
+  connectionStatus: 'Connected' | 'Degraded' | 'Disconnected';
+  datasetsCount: number;
+  lastSync: Date;
+  owner: string;
   description: string;
 }
 
-// Order
-export interface Order {
+export interface Pipeline {
   id: string;
-  orderNumber: string;
-  customer: {
-    name: string;
-    country: string;
-    type: 'Roaster' | 'Distributor' | 'Retailer';
-  };
-  items: OrderItem[];
-  totalWeight: number;
-  totalValue: number; // USD
-  currency: string;
-  orderDate: Date;
-  requestedDelivery: Date;
-  status: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
-  paymentTerms: string;
+  name: string;
+  displayName: string;
+  description: string;
+  type: 'Ingestion' | 'Transformation' | 'Quality Check' | 'Export' | 'Aggregation';
+  owner: string;
+  schedule: {
+    enabled: boolean;
+    cron: string;
+    timezone: string;
+    nextRun: Date;
+  } | null;
+  engine: string;
+  cluster: string;
+  inputDatasets: string[];
+  outputDatasets: string[];
+  tags: string[];
+  createdAt: Date;
+  lastRunStatus: 'Success' | 'Failed' | 'Running' | 'Cancelled' | 'Never';
+  lastRunTime: Date | null;
+  avgDuration: number;
+  totalRuns: number;
 }
 
-export interface OrderItem {
-  batchId: string;
-  quantity: number; // kg
-  pricePerKg: number;
-  total: number;
+export interface PipelineRunLog {
+  timestamp: Date;
+  level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
+  message: string;
 }
 
-// Lineage Node
+export interface PipelineRun {
+  id: string;
+  runNumber: string;
+  pipelineId: string;
+  pipelineName: string;
+  type: 'Ingestion' | 'Transformation' | 'Quality Check' | 'Export' | 'Aggregation';
+  status: 'Success' | 'Failed' | 'Running' | 'Cancelled';
+  startTime: Date;
+  endTime: Date;
+  duration: number;
+  recordsProcessed: number;
+  recordsFailed: number;
+  triggerType: 'Scheduled' | 'Manual' | 'Event';
+  inputDatasets: string[];
+  outputDatasets: string[];
+  parameters: Record<string, unknown>;
+  logs: PipelineRunLog[];
+}
+
 export interface LineageNode {
   id: string;
-  type: 'Farm' | 'Processing' | 'Warehouse' | 'Quality Control' | 'Export';
+  type: 'Source' | 'Ingestion' | 'Bronze' | 'Silver' | 'Gold' | 'BI';
   name: string;
   timestamp: Date;
   location: string;
-  batchIds: string[];
+  datasetIds: string[];
   metadata: Record<string, unknown>;
   parentId?: string;
 }
 
-// Processing Run
-export interface ProcessingRun {
-  id: string;
-  runNumber: string;
-  type: 'Washing' | 'Drying' | 'Hulling' | 'Sorting' | 'Grading';
-  inputBatchIds: string[];
-  outputBatchId: string;
-  startTime: Date;
-  endTime: Date;
-  duration: number; // minutes
-  operator: string;
-  facilityId: string;
-  parameters: {
-    temperature?: number;
-    humidity?: number;
-    [key: string]: unknown;
-  };
-  yieldPercentage: number;
-  qualityMetrics: {
-    score: number;
-    notes: string;
-  };
-}
-
-// Log Entry
-export interface LogEntry {
+export interface QualityEntry {
   id: string;
   timestamp: Date;
-  type: 'Quality Check' | 'Shipping' | 'Processing' | 'Inspection' | 'Maintenance';
+  checkType: 'Freshness' | 'Schema' | 'Volume' | 'Accuracy' | 'Completeness';
   severity: 'Info' | 'Warning' | 'Error' | 'Critical';
-  entityType: 'Batch' | 'Shipment' | 'Run' | 'Equipment';
-  entityId: string;
+  datasetId: string;
+  datasetName: string;
   message: string;
-  user: string;
+  rule: string;
+  result: 'Passed' | 'Failed' | 'Warning';
   metadata: Record<string, unknown>;
 }
 
-// Cost Entry
 export interface CostEntry {
   id: string;
-  category: 'Production' | 'Processing' | 'Shipping' | 'Export' | 'Labor' | 'Equipment';
+  category: 'Storage' | 'Compute' | 'Query' | 'Transfer' | 'Licensing' | 'Infrastructure';
   subcategory: string;
-  entityType: 'Batch' | 'Shipment' | 'Run';
+  entityType: 'Dataset' | 'Pipeline' | 'Source';
   entityId: string;
   amount: number;
   currency: string;
@@ -142,13 +136,12 @@ export interface CostEntry {
   }[];
 }
 
-// Catalog Data Store
 export interface CatalogData {
-  coffeeBeans: CoffeeBeanSample[];
-  shipments: Shipment[];
-  orders: Order[];
+  datasets: Dataset[];
+  dataSources: DataSource[];
   lineage: LineageNode[];
-  runs: ProcessingRun[];
-  logs: LogEntry[];
+  pipelines: Pipeline[];
+  pipelineRuns: PipelineRun[];
+  qualityChecks: QualityEntry[];
   costs: CostEntry[];
 }
