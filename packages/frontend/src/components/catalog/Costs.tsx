@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DollarSign, TrendingUp, TrendingDown, Database, Search, X, Calendar } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -69,10 +70,24 @@ const dateRangeOptions: { value: DateRange; label: string }[] = [
 export function Costs() {
   const { costs, datasets } = useCatalogData();
   useDocumentTitle('Costs');
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('');
-  const [entityType, setEntityType] = useState('');
-  const [dateRange, setDateRange] = useState<DateRange>('90');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const search = searchParams.get('q') || '';
+  const category = searchParams.get('category') || '';
+  const entityType = searchParams.get('entityType') || '';
+  const dateRange = (searchParams.get('range') as DateRange) || '90';
+
+  const updateFilters = (updates: Record<string, string | null>) => {
+    const newParams = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null || value === '') {
+        newParams.delete(key);
+      } else {
+        newParams.set(key, value);
+      }
+    }
+    setSearchParams(newParams);
+  };
 
   const now = Date.now();
   const rangeDays = Number(dateRange);
@@ -172,7 +187,7 @@ export function Costs() {
             <Calendar className="w-4 h-4 text-cream-400" />
             <select
               value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as DateRange)}
+              onChange={(e) => updateFilters({ range: e.target.value })}
               className="text-sm border border-cream-200 rounded-lg px-3 py-2 bg-white text-cream-700 focus:outline-none focus:ring-2 focus:ring-brand-300"
             >
               {dateRangeOptions.map((o) => (
@@ -271,14 +286,14 @@ export function Costs() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => updateFilters({ q: e.target.value })}
             placeholder="Search costs..."
             className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-cream-200 rounded-lg text-cream-950 placeholder-cream-400 focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-300 transition-colors"
           />
         </div>
         <select
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={(e) => updateFilters({ category: e.target.value })}
           className={clsx(
             'text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors',
             category ? 'border-brand-300 text-brand-800' : 'border-cream-200 text-cream-600'
@@ -294,7 +309,7 @@ export function Costs() {
         </select>
         <select
           value={entityType}
-          onChange={(e) => setEntityType(e.target.value)}
+          onChange={(e) => updateFilters({ entityType: e.target.value })}
           className={clsx(
             'text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors',
             entityType ? 'border-brand-300 text-brand-800' : 'border-cream-200 text-cream-600'
@@ -307,7 +322,7 @@ export function Costs() {
         </select>
         {activeFilterCount > 0 && (
           <button
-            onClick={() => { setCategory(''); setEntityType(''); }}
+            onClick={() => updateFilters({ category: null, entityType: null })}
             className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 transition-colors px-2 py-2 rounded-lg border border-brand-200 bg-brand-50 flex-shrink-0"
           >
             <X className="w-3 h-3" />

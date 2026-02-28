@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Clock, Hash, Zap, Calendar, ChevronRight,
   CheckCircle2, Activity, Timer,
@@ -16,11 +16,11 @@ const PAGE_SIZE = 12;
 type SortKey = 'name' | 'lastRun' | 'runs' | 'duration';
 
 const statusColors: Record<string, { badge: string; border: string; dot: string }> = {
-  Success:   { badge: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-400', dot: 'bg-emerald-400' },
-  Failed:    { badge: 'bg-red-100 text-red-700',         border: 'border-l-red-400',     dot: 'bg-red-400' },
-  Running:   { badge: 'bg-blue-100 text-blue-700',       border: 'border-l-blue-400',    dot: 'bg-blue-400' },
-  Cancelled: { badge: 'bg-cream-100 text-cream-600',     border: 'border-l-cream-400',   dot: 'bg-cream-400' },
-  Never:     { badge: 'bg-cream-100 text-cream-500',     border: 'border-l-cream-300',   dot: 'bg-cream-300' },
+  Success: { badge: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-400', dot: 'bg-emerald-400' },
+  Failed: { badge: 'bg-red-100 text-red-700', border: 'border-l-red-400', dot: 'bg-red-400' },
+  Running: { badge: 'bg-blue-100 text-blue-700', border: 'border-l-blue-400', dot: 'bg-blue-400' },
+  Cancelled: { badge: 'bg-cream-100 text-cream-600', border: 'border-l-cream-400', dot: 'bg-cream-400' },
+  Never: { badge: 'bg-cream-100 text-cream-500', border: 'border-l-cream-300', dot: 'bg-cream-300' },
 };
 
 function formatDuration(seconds: number): string {
@@ -49,13 +49,30 @@ export function Pipelines() {
   const { pipelines, pipelineRuns } = useCatalogData();
   const navigate = useNavigate();
   useDocumentTitle('Pipelines');
-  const [search, setSearch] = useState('');
-  const [types, setTypes] = useState<string[]>([]);
-  const [statuses, setStatuses] = useState<string[]>([]);
-  const [engines, setEngines] = useState<string[]>([]);
-  const [scheduleFilter, setScheduleFilter] = useState<string[]>([]);
-  const [sortKey, setSortKey] = useState<SortKey>('lastRun');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const search = searchParams.get('q') || '';
+  const types = searchParams.getAll('type');
+  const statuses = searchParams.getAll('status');
+  const engines = searchParams.getAll('engine');
+  const scheduleFilter = searchParams.getAll('schedule');
+  const sortKey = (searchParams.get('sort') as SortKey) || 'lastRun';
+  const page = parseInt(searchParams.get('page') || '1', 10);
+
+  const updateFilters = (updates: Record<string, string | string[] | null>) => {
+    const newParams = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null || (Array.isArray(value) && value.length === 0) || value === '') {
+        newParams.delete(key);
+      } else if (Array.isArray(value)) {
+        newParams.delete(key);
+        value.forEach(v => newParams.append(key, v));
+      } else {
+        newParams.set(key, value);
+      }
+    }
+    setSearchParams(newParams);
+  };
 
   const typeOptions = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -145,7 +162,7 @@ export function Pipelines() {
         actions={
           <select
             value={sortKey}
-            onChange={(e) => { setSortKey(e.target.value as SortKey); setPage(1); }}
+            onChange={(e) => updateFilters({ sort: e.target.value, page: '1' })}
             className="text-sm border border-cream-200 rounded-lg px-3 py-2 bg-white text-cream-700 focus:outline-none focus:ring-2 focus:ring-brand-300"
           >
             <option value="lastRun">Sort by Last Run</option>
@@ -205,14 +222,14 @@ export function Pipelines() {
           <input
             type="text"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => updateFilters({ q: e.target.value, page: '1' })}
             placeholder="Search pipelines..."
             className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-cream-200 rounded-lg text-cream-950 placeholder-cream-400 focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-300 transition-colors"
           />
         </div>
         <select
           value={statuses.length === 1 ? statuses[0] : ''}
-          onChange={(e) => { setStatuses(e.target.value ? [e.target.value] : []); setPage(1); }}
+          onChange={(e) => updateFilters({ status: e.target.value ? [e.target.value] : null, page: '1' })}
           className={clsx(
             'text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors',
             statuses.length > 0 ? 'border-brand-300 text-brand-800' : 'border-cream-200 text-cream-600'
@@ -225,7 +242,7 @@ export function Pipelines() {
         </select>
         <select
           value={types.length === 1 ? types[0] : ''}
-          onChange={(e) => { setTypes(e.target.value ? [e.target.value] : []); setPage(1); }}
+          onChange={(e) => updateFilters({ type: e.target.value ? [e.target.value] : null, page: '1' })}
           className={clsx(
             'text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors',
             types.length > 0 ? 'border-brand-300 text-brand-800' : 'border-cream-200 text-cream-600'
@@ -238,7 +255,7 @@ export function Pipelines() {
         </select>
         <select
           value={engines.length === 1 ? engines[0] : ''}
-          onChange={(e) => { setEngines(e.target.value ? [e.target.value] : []); setPage(1); }}
+          onChange={(e) => updateFilters({ engine: e.target.value ? [e.target.value] : null, page: '1' })}
           className={clsx(
             'text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors',
             engines.length > 0 ? 'border-brand-300 text-brand-800' : 'border-cream-200 text-cream-600'
@@ -251,7 +268,7 @@ export function Pipelines() {
         </select>
         <select
           value={scheduleFilter.length === 1 ? scheduleFilter[0] : ''}
-          onChange={(e) => { setScheduleFilter(e.target.value ? [e.target.value] : []); setPage(1); }}
+          onChange={(e) => updateFilters({ schedule: e.target.value ? [e.target.value] : null, page: '1' })}
           className={clsx(
             'text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors',
             scheduleFilter.length > 0 ? 'border-brand-300 text-brand-800' : 'border-cream-200 text-cream-600'
@@ -264,7 +281,7 @@ export function Pipelines() {
         </select>
         {activeFilterCount > 0 && (
           <button
-            onClick={() => { setTypes([]); setStatuses([]); setEngines([]); setScheduleFilter([]); setPage(1); }}
+            onClick={() => updateFilters({ type: null, status: null, engine: null, schedule: null, page: '1' })}
             className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 transition-colors px-2 py-2 rounded-lg border border-brand-200 bg-brand-50 flex-shrink-0"
           >
             <X className="w-3 h-3" />
@@ -371,7 +388,7 @@ export function Pipelines() {
 
       {totalPages > 1 && (
         <div className="flex justify-center mt-6">
-          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+          <Pagination currentPage={page} totalPages={totalPages} onPageChange={(p) => updateFilters({ page: String(p) })} />
         </div>
       )}
     </div>

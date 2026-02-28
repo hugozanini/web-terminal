@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Database,
@@ -44,12 +44,12 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import clsx from 'clsx';
 
 const typeNodeConfig: Record<string, { color: string; bg: string; border: string }> = {
-  Source:    { color: 'text-red-400',     bg: 'bg-red-950/50',     border: 'border-red-700' },
-  Ingestion: { color: 'text-orange-400',  bg: 'bg-orange-950/50',  border: 'border-orange-700' },
-  Bronze:   { color: 'text-amber-400',    bg: 'bg-amber-950/50',   border: 'border-amber-700' },
-  Silver:   { color: 'text-gray-300',     bg: 'bg-gray-800/50',    border: 'border-gray-600' },
-  Gold:     { color: 'text-yellow-400',   bg: 'bg-yellow-950/50',  border: 'border-yellow-700' },
-  BI:       { color: 'text-blue-400',     bg: 'bg-blue-950/50',    border: 'border-blue-700' },
+  Source: { color: 'text-red-400', bg: 'bg-red-950/50', border: 'border-red-700' },
+  Ingestion: { color: 'text-orange-400', bg: 'bg-orange-950/50', border: 'border-orange-700' },
+  Bronze: { color: 'text-amber-400', bg: 'bg-amber-950/50', border: 'border-amber-700' },
+  Silver: { color: 'text-gray-300', bg: 'bg-gray-800/50', border: 'border-gray-600' },
+  Gold: { color: 'text-yellow-400', bg: 'bg-yellow-950/50', border: 'border-yellow-700' },
+  BI: { color: 'text-blue-400', bg: 'bg-blue-950/50', border: 'border-blue-700' },
 };
 
 function MiniLineageNode({ data }: { data: { label: string; type: string; location: string } }) {
@@ -97,9 +97,9 @@ function freshnessLabel(lastUpdated: Date): string {
 
 const criticalityConfig: Record<string, { color: string; bg: string; border: string }> = {
   Critical: { color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
-  High:     { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' },
-  Medium:   { color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
-  Low:      { color: 'text-cream-600', bg: 'bg-cream-50', border: 'border-cream-200' },
+  High: { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' },
+  Medium: { color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
+  Low: { color: 'text-cream-600', bg: 'bg-cream-50', border: 'border-cream-200' },
 };
 
 type TabKey = 'overview' | 'data' | 'quality' | 'lineage' | 'pipelines' | 'costs';
@@ -126,10 +126,12 @@ function makePipelineColumns(pList: { id: string; name: string }[], dsId?: strin
     { key: 'pipeline', header: 'Pipeline', width: '200px', sortable: true, sortValue: (r) => r.pipelineName, render: (r) => <PipelineLink run={r} pipelineList={pList} datasetId={dsId} datasetName={dsName} /> },
     { key: 'run', header: 'Run', width: '120px', render: (r) => <span className="text-xs text-cream-500">{r.runNumber}</span> },
     { key: 'type', header: 'Type', width: '120px', sortable: true, sortValue: (r) => r.type, render: (r) => <span className="text-xs">{r.type}</span> },
-    { key: 'status', header: 'Status', width: '90px', sortable: true, sortValue: (r) => r.status, render: (r) => {
-      const color = r.status === 'Success' ? 'text-emerald-600' : r.status === 'Failed' ? 'text-red-600' : r.status === 'Running' ? 'text-blue-600' : 'text-cream-500';
-      return <span className={clsx('text-xs font-medium', color)}>{r.status}</span>;
-    }},
+    {
+      key: 'status', header: 'Status', width: '90px', sortable: true, sortValue: (r) => r.status, render: (r) => {
+        const color = r.status === 'Success' ? 'text-emerald-600' : r.status === 'Failed' ? 'text-red-600' : r.status === 'Running' ? 'text-blue-600' : 'text-cream-500';
+        return <span className={clsx('text-xs font-medium', color)}>{r.status}</span>;
+      }
+    },
     { key: 'records', header: 'Records', width: '100px', sortable: true, sortValue: (r) => r.recordsProcessed, render: (r) => <span className="text-xs">{r.recordsProcessed.toLocaleString()}</span> },
     { key: 'date', header: 'Date', width: '110px', sortable: true, sortValue: (r) => new Date(r.startTime).getTime(), render: (r) => <span className="text-xs text-cream-600">{new Date(r.startTime).toLocaleDateString()}</span> },
   ];
@@ -147,7 +149,8 @@ export function DatasetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { datasets, lineage, pipelines, pipelineRuns, costs } = useCatalogData();
-  const [tab, setTab] = useState<TabKey>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = (searchParams.get('tab') as TabKey) || 'overview';
 
   const dataset = datasets.find((d) => d.id === id);
   useDocumentTitle(dataset ? dataset.displayName : 'Dataset Detail');
@@ -238,7 +241,7 @@ export function DatasetDetail() {
 
   const qualityColor = dataset.qualityScore >= 90 ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
     : dataset.qualityScore >= 75 ? 'bg-blue-100 text-blue-700 border-blue-200'
-    : 'bg-amber-100 text-amber-700 border-amber-200';
+      : 'bg-amber-100 text-amber-700 border-amber-200';
 
   const critConf = criticalityConfig[dataset.criticality] || criticalityConfig.Medium;
 
@@ -326,7 +329,7 @@ export function DatasetDetail() {
           {tabs.map((t) => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => setSearchParams({ tab: t.key })}
               className={clsx(
                 'flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors',
                 tab === t.key

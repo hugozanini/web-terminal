@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Play,
@@ -40,11 +40,11 @@ type TabKey = 'overview' | 'runs' | 'lineage';
 type Environment = 'production' | 'staging';
 
 const statusColors: Record<string, { badge: string; border: string; dot: string }> = {
-  Success:   { badge: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-400', dot: 'bg-emerald-400' },
-  Failed:    { badge: 'bg-red-100 text-red-700',         border: 'border-l-red-400',     dot: 'bg-red-400' },
-  Running:   { badge: 'bg-blue-100 text-blue-700',       border: 'border-l-blue-400',    dot: 'bg-blue-400' },
-  Cancelled: { badge: 'bg-cream-100 text-cream-600',     border: 'border-l-cream-400',   dot: 'bg-cream-400' },
-  Never:     { badge: 'bg-cream-100 text-cream-500',     border: 'border-l-cream-300',   dot: 'bg-cream-300' },
+  Success: { badge: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-400', dot: 'bg-emerald-400' },
+  Failed: { badge: 'bg-red-100 text-red-700', border: 'border-l-red-400', dot: 'bg-red-400' },
+  Running: { badge: 'bg-blue-100 text-blue-700', border: 'border-l-blue-400', dot: 'bg-blue-400' },
+  Cancelled: { badge: 'bg-cream-100 text-cream-600', border: 'border-l-cream-400', dot: 'bg-cream-400' },
+  Never: { badge: 'bg-cream-100 text-cream-500', border: 'border-l-cream-300', dot: 'bg-cream-300' },
 };
 
 function formatDuration(seconds: number): string {
@@ -69,9 +69,9 @@ function formatCron(cron: string): string {
 }
 
 const logLevelColors: Record<string, string> = {
-  INFO:  'text-blue-400',
+  INFO: 'text-blue-400',
   DEBUG: 'text-gray-500',
-  WARN:  'text-amber-400',
+  WARN: 'text-amber-400',
   ERROR: 'text-red-400',
 };
 
@@ -84,18 +84,18 @@ function LogLine({ log }: { log: PipelineRunLog }) {
       <span className={clsx(
         'flex-1',
         log.level === 'ERROR' ? 'text-red-300' :
-        log.level === 'WARN' ? 'text-amber-300' :
-        log.level === 'DEBUG' ? 'text-gray-500' :
-        'text-gray-300'
+          log.level === 'WARN' ? 'text-amber-300' :
+            log.level === 'DEBUG' ? 'text-gray-500' :
+              'text-gray-300'
       )}>{log.message}</span>
     </div>
   );
 }
 
 const lineageNodeConfig: Record<string, { color: string; bg: string; border: string }> = {
-  input:    { color: 'text-blue-400',    bg: 'bg-blue-950/50',    border: 'border-blue-700' },
-  pipeline: { color: 'text-white',       bg: 'bg-gray-800',       border: 'border-gray-500' },
-  output:   { color: 'text-emerald-400', bg: 'bg-emerald-950/50', border: 'border-emerald-700' },
+  input: { color: 'text-blue-400', bg: 'bg-blue-950/50', border: 'border-blue-700' },
+  pipeline: { color: 'text-white', bg: 'bg-gray-800', border: 'border-gray-500' },
+  output: { color: 'text-emerald-400', bg: 'bg-emerald-950/50', border: 'border-emerald-700' },
 };
 
 function PipelineFlowNode({ data }: { data: { label: string; sublabel: string; nodeType: string } }) {
@@ -141,8 +141,9 @@ export function PipelineDetail() {
   const pipeline = pipelines.find((p) => p.id === id);
   useDocumentTitle(pipeline ? pipeline.displayName : 'Pipeline');
 
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
-  const [expandedRun, setExpandedRun] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get('tab') as TabKey) || 'overview';
+  const expandedRun = searchParams.get('run');
   const [isRunning, setIsRunning] = useState(false);
   const [liveRunId, setLiveRunId] = useState<string | null>(null);
   const [liveLogs, setLiveLogs] = useState<PipelineRunLog[]>([]);
@@ -281,8 +282,7 @@ export function PipelineDetail() {
     setLiveElapsed(0);
     setIsRunning(true);
     setSelectedEnv(env);
-    setActiveTab('runs');
-    setExpandedRun(runId);
+    setSearchParams({ tab: 'runs', run: runId });
 
     timerRef.current = setInterval(() => {
       setLiveElapsed((prev) => prev + 1);
@@ -488,7 +488,7 @@ export function PipelineDetail() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => setSearchParams({ tab: tab.key, ...(expandedRun ? { run: expandedRun } : {}) })}
               className={clsx(
                 'px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors',
                 activeTab === tab.key
@@ -646,7 +646,15 @@ export function PipelineDetail() {
                 )}
               >
                 <button
-                  onClick={() => setExpandedRun(isExpanded ? null : run.id)}
+                  onClick={() => {
+                    const newParams = new URLSearchParams(searchParams);
+                    if (isExpanded) {
+                      newParams.delete('run');
+                    } else {
+                      newParams.set('run', run.id);
+                    }
+                    setSearchParams(newParams);
+                  }}
                   className="flex items-center justify-between w-full px-4 py-3 text-left"
                 >
                   <div className="flex items-center gap-3">

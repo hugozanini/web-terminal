@@ -28,7 +28,7 @@ export function SearchResults() {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
   const [localQuery, setLocalQuery] = useState(query);
-  const [activeTab, setActiveTab] = useState<AssetTab>('all');
+  const activeTab = (searchParams.get('tab') as AssetTab) || 'all';
   const navigate = useNavigate();
   const { datasets, dataSources, pipelines } = useCatalogData();
   useDocumentTitle(query ? `Search: ${query}` : 'Search');
@@ -88,8 +88,7 @@ export function SearchResults() {
   const handleSearch = () => {
     const trimmed = localQuery.trim();
     if (trimmed) {
-      setSearchParams({ q: trimmed });
-      setActiveTab('all');
+      setSearchParams({ q: trimmed, tab: 'all' });
     }
   };
 
@@ -127,7 +126,7 @@ export function SearchResults() {
                 {tabs.map((tab) => (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
+                    onClick={() => setSearchParams({ q: query, tab: tab.key })}
                     className={clsx(
                       'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors whitespace-nowrap',
                       activeTab === tab.key

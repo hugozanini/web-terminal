@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Database,
   Server,
@@ -22,7 +22,8 @@ type AssetTab = 'all' | 'datasets' | 'sources' | 'pipelines';
 export function Home() {
   const { datasets, dataSources, pipelines, qualityChecks, costs } = useCatalogData();
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<AssetTab>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get('tab') as AssetTab) || 'all';
   const navigate = useNavigate();
   useDocumentTitle('Home');
 
@@ -135,7 +136,7 @@ export function Home() {
                 {tabs.map((tab) => (
                   <button
                     key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
+                    onClick={() => setSearchParams({ tab: tab.key })}
                     className={clsx(
                       'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors whitespace-nowrap',
                       activeTab === tab.key
