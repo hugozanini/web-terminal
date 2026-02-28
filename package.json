@@ -1,0 +1,21 @@
+{
+  "name": "web-terminal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Happy Coffee Data Catalog with Integrated Terminal",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w frontend\" \"npm run dev -w backend\"",
+    "build": "npm run build -w frontend && npm run build -w backend",
+    "test": "npm run test -w frontend && npm run test -w backend",
+    "lint": "npm run lint -w frontend && npm run lint -w backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
