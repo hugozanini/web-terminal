@@ -13,9 +13,9 @@ beforeAll(() => {
   }));
 });
 
-function renderDatasets() {
+function renderDatasets(initialUrl = '/datasets') {
   return render(
-    <MemoryRouter initialEntries={['/datasets']}>
+    <MemoryRouter initialEntries={[initialUrl]}>
       <Datasets />
     </MemoryRouter>
   );
@@ -63,6 +63,16 @@ describe('Datasets', () => {
     renderDatasets();
     await waitFor(() => {
       expect(screen.getByDisplayValue('Sort by Quality Score')).toBeInTheDocument();
+    });
+  });
+  it('reads state from URL search parameters correctly', async () => {
+    renderDatasets('/datasets?q=marketing&type=dbt&sort=size');
+    await waitFor(() => {
+      // The search input should have the URL query text
+      expect(screen.getByPlaceholderText(/search/i)).toHaveValue('marketing');
+      // The sort dropdown should match 'size'
+      const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
+      expect(selects[0].value).toBe('size');
     });
   });
 });

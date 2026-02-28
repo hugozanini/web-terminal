@@ -12,9 +12,9 @@ beforeAll(() => {
   }));
 });
 
-function renderPipelines() {
+function renderPipelines(initialUrl = '/pipelines') {
   return render(
-    <MemoryRouter initialEntries={['/pipelines']}>
+    <MemoryRouter initialEntries={[initialUrl]}>
       <Pipelines />
     </MemoryRouter>
   );
@@ -64,6 +64,19 @@ describe('Pipelines', () => {
     renderPipelines();
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Search pipelines...')).toBeInTheDocument();
+    });
+  });
+
+  it('reads filter state from URL parameters correctly', async () => {
+    renderPipelines('/pipelines?q=etl&status=Failed&engine=Airflow');
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Search pipelines...')).toHaveValue('etl');
+
+      const selects = screen.getAllByRole('combobox') as HTMLSelectElement[];
+      // The status select should have 'Failed' as value (it is index 1 because index 0 is the sort combobox)
+      expect(selects[1].value).toBe('Failed');
+      // The engine select should have 'Airflow' as value (index 3)
+      expect(selects[3].value).toBe('Airflow');
     });
   });
 });
