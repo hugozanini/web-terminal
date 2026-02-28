@@ -10,6 +10,11 @@ import {
   Play,
   DollarSign,
   ExternalLink,
+  RefreshCw,
+  Shield,
+  TrendingUp,
+  TrendingDown,
+  Table2,
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -24,6 +29,9 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { TagPill, getTagVariant, getDatasetTypeVariant } from '../ui/TagPill';
 import { DataTable, type Column } from '../ui/DataTable';
 import { useCatalogData } from '../../hooks/useCatalogData';
@@ -83,7 +91,14 @@ function freshnessLabel(lastUpdated: Date): string {
   return `${days}d ago`;
 }
 
-type TabKey = 'overview' | 'lineage' | 'pipelines' | 'costs';
+const criticalityConfig: Record<string, { color: string; bg: string; border: string }> = {
+  Critical: { color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
+  High:     { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' },
+  Medium:   { color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
+  Low:      { color: 'text-cream-600', bg: 'bg-cream-50', border: 'border-cream-200' },
+};
+
+type TabKey = 'overview' | 'data' | 'lineage' | 'pipelines' | 'costs';
 
 function PipelineLink({ run, pipelineList }: { run: PipelineRun; pipelineList: { id: string; name: string }[] }) {
   const p = pipelineList.find((pl) => pl.id === run.pipelineId);
@@ -112,7 +127,7 @@ function makePipelineColumns(pList: { id: string; name: string }[]): Column<Pipe
   ];
 }
 
-const costColumns: Column<CostEntry>[] = [
+const costTableColumns: Column<CostEntry>[] = [
   { key: 'date', header: 'Date', width: '100px', sortable: true, sortValue: (r) => new Date(r.date).getTime(), render: (r) => <span className="text-xs text-cream-600">{new Date(r.date).toLocaleDateString()}</span> },
   { key: 'category', header: 'Category', width: '110px', sortable: true, sortValue: (r) => r.category, render: (r) => <span className="text-xs">{r.category}</span> },
   { key: 'subcategory', header: 'Subcategory', render: (r) => <span className="text-xs font-medium">{r.subcategory}</span> },
@@ -154,6 +169,39 @@ export function DatasetDetail() {
     [id, costs]
   );
 
+  const costChartData = useMemo(() => {
+    if (datasetCosts.length === 0) return [];
+    const byDate: Record<string, { storage: number; compute: number }> = {};
+    for (const c of datasetCosts) {
+      const key = new Date(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      if (!byDate[key]) byDate[key] = { storage: 0, compute: 0 };
+      if (c.category === 'Storage') byDate[key].storage += c.amount;
+      else if (c.category === 'Compute') byDate[key].compute += c.amount;
+    }
+    return Object.entries(byDate)
+      .map(([date, vals]) => ({ date, storage: +vals.storage.toFixed(2), compute: +vals.compute.toFixed(2) }))
+      .reverse();
+  }, [datasetCosts]);
+
+  const costSummary = useMemo(() => {
+    const storage = datasetCosts.filter(c => c.category === 'Storage').reduce((s, c) => s + c.amount, 0);
+    const compute = datasetCosts.filter(c => c.category === 'Compute').reduce((s, c) => s + c.amount, 0);
+    const total = datasetCosts.reduce((s, c) => s + c.amount, 0);
+    const halfLen = Math.floor(costChartData.length / 2);
+    const recentStorage = costChartData.slice(halfLen).reduce((s, d) => s + d.storage, 0);
+    const olderStorage = costChartData.slice(0, halfLen).reduce((s, d) => s + d.storage, 0);
+    const storageTrend = olderStorage > 0 ? ((recentStorage - olderStorage) / olderStorage) * 100 : 0;
+    const recentCompute = costChartData.slice(halfLen).reduce((s, d) => s + d.compute, 0);
+    const olderCompute = costChartData.slice(0, halfLen).reduce((s, d) => s + d.compute, 0);
+    const computeTrend = olderCompute > 0 ? ((recentCompute - olderCompute) / olderCompute) * 100 : 0;
+    return { storage, compute, total, storageTrend, computeTrend };
+  }, [datasetCosts, costChartData]);
+
+  const sampleColumns = useMemo(() => {
+    if (!dataset || dataset.sampleData.length === 0) return [];
+    return Object.keys(dataset.sampleData[0]);
+  }, [dataset]);
+
   if (!dataset) {
     return (
       <div className="text-center py-20">
@@ -169,8 +217,11 @@ export function DatasetDetail() {
     : dataset.qualityScore >= 75 ? 'bg-blue-100 text-blue-700 border-blue-200'
     : 'bg-amber-100 text-amber-700 border-amber-200';
 
+  const critConf = criticalityConfig[dataset.criticality] || criticalityConfig.Medium;
+
   const tabs: { key: TabKey; label: string; count?: number }[] = [
     { key: 'overview', label: 'Overview' },
+    { key: 'data', label: 'Data' },
     { key: 'lineage', label: 'Lineage', count: datasetLineage.nodes.length },
     { key: 'pipelines', label: 'Pipeline Runs', count: datasetPipelines.length },
     { key: 'costs', label: 'Costs', count: datasetCosts.length },
@@ -188,7 +239,7 @@ export function DatasetDetail() {
 
       <div className="bg-white border border-cream-200 rounded-xl shadow-card p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <Database className="w-5 h-5 text-cream-400" />
               <h1 className="text-2xl font-semibold text-cream-950">{dataset.displayName}</h1>
@@ -196,9 +247,46 @@ export function DatasetDetail() {
             <p className="text-sm text-cream-500 font-mono">{dataset.schema.database}.{dataset.schema.schema}.{dataset.name}</p>
             <p className="text-sm text-cream-600 mt-1">{dataset.description}</p>
           </div>
-          <span className={clsx('text-lg font-bold px-3 py-1.5 rounded-full border', qualityColor)}>
-            {dataset.qualityScore}
-          </span>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold', critConf.bg, critConf.border, critConf.color)}>
+              <Shield className="w-3.5 h-3.5" />
+              {dataset.criticality}
+            </div>
+            <span className={clsx('text-lg font-bold px-3 py-1.5 rounded-full border', qualityColor)}>
+              {dataset.qualityScore}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 py-3 border-t border-b border-cream-100">
+          <div className="flex items-center gap-2 text-xs">
+            <RefreshCw className="w-3.5 h-3.5 text-cream-400" />
+            <div>
+              <p className="text-cream-500">Update Frequency</p>
+              <p className="text-cream-900 font-medium">{dataset.freshness.updateFrequency}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <Clock className="w-3.5 h-3.5 text-cream-400" />
+            <div>
+              <p className="text-cream-500">Last Updated</p>
+              <p className="text-cream-900 font-medium">{freshnessLabel(dataset.freshness.lastUpdated)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <User className="w-3.5 h-3.5 text-cream-400" />
+            <div>
+              <p className="text-cream-500">Owner</p>
+              <p className="text-cream-900 font-medium">{dataset.owner}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <Server className="w-3.5 h-3.5 text-cream-400" />
+            <div>
+              <p className="text-cream-500">Source</p>
+              <p className="text-cream-900 font-medium">{dataset.source}</p>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
@@ -268,7 +356,7 @@ export function DatasetDetail() {
                 <span className="text-cream-600">Last updated: <span className="font-medium text-cream-900">{freshnessLabel(dataset.freshness.lastUpdated)}</span></span>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <Clock className="w-4 h-4 text-cream-400 flex-shrink-0" />
+                <RefreshCw className="w-4 h-4 text-cream-400 flex-shrink-0" />
                 <span className="text-cream-600">Update frequency: <span className="font-medium text-cream-900">{dataset.freshness.updateFrequency}</span></span>
               </div>
               <div className="flex items-center gap-2 text-sm">
@@ -278,6 +366,47 @@ export function DatasetDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {tab === 'data' && (
+        dataset.sampleData.length > 0 ? (
+          <div className="bg-white border border-cream-200 rounded-xl shadow-card overflow-hidden">
+            <div className="px-4 py-3 border-b border-cream-100 flex items-center gap-2">
+              <Table2 className="w-4 h-4 text-cream-400" />
+              <h3 className="text-sm font-semibold text-cream-800">Data Preview</h3>
+              <span className="text-[10px] text-cream-400 ml-1">Top 10 rows</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-cream-50">
+                    {sampleColumns.map((col) => (
+                      <th key={col} className="px-3 py-2 text-left text-cream-600 font-semibold whitespace-nowrap border-b border-cream-100">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {dataset.sampleData.map((row, idx) => (
+                    <tr key={idx} className="border-b border-cream-50 hover:bg-cream-50/50 transition-colors">
+                      {sampleColumns.map((col) => (
+                        <td key={col} className="px-3 py-2 text-cream-800 whitespace-nowrap">
+                          {String(row[col] ?? '')}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12 text-cream-400 text-sm">
+            <Table2 className="w-8 h-8 mx-auto mb-2 text-cream-300" />
+            No sample data available for this dataset
+          </div>
+        )
       )}
 
       {tab === 'lineage' && (
@@ -316,7 +445,80 @@ export function DatasetDetail() {
 
       {tab === 'costs' && (
         datasetCosts.length > 0 ? (
-          <DataTable columns={costColumns} data={datasetCosts} pageSize={10} keyExtractor={(r) => r.id} />
+          <div className="space-y-6">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                <p className="text-xs text-cream-500 mb-1">Total Cost</p>
+                <p className="text-xl font-bold text-cream-900">${costSummary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                <p className="text-[10px] text-cream-400 mt-1">Last 90 days</p>
+              </div>
+              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                <p className="text-xs text-cream-500 mb-1">Storage</p>
+                <p className="text-xl font-bold text-cream-900">${costSummary.storage.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                <div className="flex items-center gap-1 mt-1">
+                  {costSummary.storageTrend >= 0 ? (
+                    <TrendingUp className="w-3 h-3 text-red-500" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3 text-emerald-500" />
+                  )}
+                  <span className={clsx('text-[10px] font-medium', costSummary.storageTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
+                    {Math.abs(costSummary.storageTrend).toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                <p className="text-xs text-cream-500 mb-1">Compute</p>
+                <p className="text-xl font-bold text-cream-900">${costSummary.compute.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                <div className="flex items-center gap-1 mt-1">
+                  {costSummary.computeTrend >= 0 ? (
+                    <TrendingUp className="w-3 h-3 text-red-500" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3 text-emerald-500" />
+                  )}
+                  <span className={clsx('text-[10px] font-medium', costSummary.computeTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
+                    {Math.abs(costSummary.computeTrend).toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {costChartData.length > 1 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <h3 className="text-sm font-semibold text-cream-800 mb-3">Storage Cost Trend</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={costChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#737373' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#737373' }} tickFormatter={(v) => `$${v}`} />
+                      <Tooltip
+                        contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e5e5' }}
+                        formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, 'Storage']}
+                      />
+                      <Line type="monotone" dataKey="storage" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <h3 className="text-sm font-semibold text-cream-800 mb-3">Compute Cost Trend</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={costChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#737373' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#737373' }} tickFormatter={(v) => `$${v}`} />
+                      <Tooltip
+                        contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e5e5' }}
+                        formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, 'Compute']}
+                      />
+                      <Line type="monotone" dataKey="compute" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            <DataTable columns={costTableColumns} data={datasetCosts} pageSize={10} keyExtractor={(r) => r.id} />
+          </div>
         ) : (
           <div className="text-center py-12 text-cream-400 text-sm">
             <DollarSign className="w-8 h-8 mx-auto mb-2 text-cream-300" />
