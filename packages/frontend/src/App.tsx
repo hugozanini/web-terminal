@@ -1,22 +1,37 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Header } from './components/layout/Header';
+import { Navigation } from './components/layout/Navigation';
+import { DataSamples } from './components/catalog/DataSamples';
+import { Lineage } from './components/catalog/Lineage';
+import { Runs } from './components/catalog/Runs';
+import { Logs } from './components/catalog/Logs';
+import { Costs } from './components/catalog/Costs';
+
 function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-amber-800 text-white p-4 shadow-lg">
-        <div className="container mx-auto">
-          <h1 className="text-2xl font-bold">Happy Coffee</h1>
-          <p className="text-sm text-amber-100">Brazilian Coffee Export Data Catalog</p>
-        </div>
-      </header>
-      <main className="container mx-auto p-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Welcome to Happy Coffee</h2>
-          <p className="text-gray-600">
-            Data catalog loading... This is the foundation for the Happy Coffee data catalog with integrated terminal.
-          </p>
-        </div>
-      </main>
-    </div>
-  )
+    <BrowserRouter>
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <Header />
+        <Navigation />
+
+        <main className="flex-1 container mx-auto px-4 py-6">
+          <Routes>
+            <Route path="/" element={<DataSamples />} />
+            <Route path="/lineage" element={<Lineage />} />
+            <Route path="/runs" element={<Runs />} />
+            <Route path="/logs" element={<Logs />} />
+            <Route path="/costs" element={<Costs />} />
+          </Routes>
+        </main>
+
+        <footer className="bg-white border-t border-gray-200 py-4">
+          <div className="container mx-auto px-4 text-center text-sm text-gray-600">
+            Happy Coffee © {new Date().getFullYear()} - Brazilian Coffee Export Data Catalog
+          </div>
+        </footer>
+      </div>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
