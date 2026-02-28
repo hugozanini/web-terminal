@@ -27,6 +27,14 @@ export function useTerminal(terminal: XTermTerminal | null) {
       console.log('Terminal WebSocket connected');
       setIsConnected(true);
       setError(null);
+
+      // Send initial size
+      const message: TerminalMessage = {
+        type: 'resize',
+        cols: terminal.cols,
+        rows: terminal.rows,
+      };
+      ws.send(JSON.stringify(message));
     };
 
     ws.onmessage = (event) => {
@@ -77,9 +85,22 @@ export function useTerminal(terminal: XTermTerminal | null) {
 
     const dataDisposable = terminal.onData(handleData);
 
+    // Handle terminal resize
+    const resizeDisposable = terminal.onResize(({ cols, rows }) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        const message: TerminalMessage = {
+          type: 'resize',
+          cols,
+          rows,
+        };
+        ws.send(JSON.stringify(message));
+      }
+    });
+
     // Cleanup
     return () => {
       dataDisposable.dispose();
+      resizeDisposable.dispose();
       if (ws.readyState === WebSocket.OPEN) {
         ws.close();
       }
