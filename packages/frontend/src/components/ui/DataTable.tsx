@@ -58,8 +58,8 @@ export function DataTable<T>({
   const SortIcon = ({ colKey }: { colKey: string }) => {
     if (sortKey !== colKey) return <ArrowUpDown className="w-3 h-3 text-cream-400" />;
     return sortDir === 'asc'
-      ? <ArrowUp className="w-3 h-3 text-coffee-600" />
-      : <ArrowDown className="w-3 h-3 text-coffee-600" />;
+      ? <ArrowUp className="w-3 h-3 text-brand-700" />
+      : <ArrowDown className="w-3 h-3 text-brand-700" />;
   };
 
   return (

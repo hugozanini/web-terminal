@@ -117,7 +117,7 @@ export function Datasets() {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value as SortKey)}
-              className="text-sm border border-cream-200 rounded-lg px-3 py-2 bg-white text-cream-700 focus:outline-none focus:ring-2 focus:ring-coffee-300"
+              className="text-sm border border-cream-200 rounded-lg px-3 py-2 bg-white text-cream-700 focus:outline-none focus:ring-2 focus:ring-brand-300"
             >
               <option value="quality">Sort by Quality Score</option>
               <option value="updated">Sort by Last Updated</option>

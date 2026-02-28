@@ -1,0 +1,56 @@
+.steam {
+  animation: steam-rise 4.6s infinite linear;
+  transform-origin: 200px 180px;
+}
+
+.steam-1 {
+  animation-delay: 0s;
+}
+
+.steam-2 {
+  animation-delay: -2.3s;
+}
+
+.wisp-left {
+  animation: steam-sway 3s infinite ease-in-out alternate;
+  transform-origin: 185px 170px;
+}
+
+.wisp-right {
+  animation: steam-sway 3.8s infinite ease-in-out alternate-reverse;
+  transform-origin: 215px 160px;
+}
+
+@keyframes steam-rise {
+  0% {
+    transform: translateY(8px) scale(0.95);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.9;
+  }
+  75% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-38px) scale(1.15);
+    opacity: 0;
+  }
+}
+
+@keyframes steam-sway {
+  0% {
+    transform: translateX(-3px) rotate(-3deg);
+  }
+  100% {
+    transform: translateX(4px) rotate(3deg);
+  }
+}
+
+.logo-inner {
+  fill: var(--logo-inner, #000000);
+}
+
+.logo-inner-stroke {
+  stroke: var(--logo-inner, #000000);
+}

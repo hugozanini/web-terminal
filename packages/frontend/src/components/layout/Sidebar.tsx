@@ -1,6 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Coffee,
   Home,
   Database,
   GitBranch,
@@ -11,6 +10,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useCatalogData } from '../../hooks/useCatalogData';
+import { Logo } from '../ui/Logo';
 
 interface SidebarProps {
   isTerminalOpen: boolean;
@@ -38,10 +38,10 @@ export function Sidebar({ isTerminalOpen, onToggleTerminal }: SidebarProps) {
   };
 
   return (
-    <aside className="w-56 bg-coffee-950 text-cream-200 flex flex-col flex-shrink-0 h-screen sticky top-0">
-      <div className="px-4 py-5 border-b border-coffee-900">
-        <Link to="/" className="flex items-center gap-2.5">
-          <Coffee className="w-7 h-7 text-coffee-400" />
+    <aside className="w-56 bg-brand-950 text-cream-300 flex flex-col flex-shrink-0 h-screen sticky top-0">
+      <div className="px-4 py-5 border-b border-brand-800">
+        <Link to="/" className="flex items-center gap-2.5 text-white" style={{ '--logo-inner': '#0a0a0a' } as React.CSSProperties}>
+          <Logo size={48} />
           <div>
             <h1 className="text-base font-semibold text-white leading-tight">Happy Coffee</h1>
             <p className="text-xs text-cream-500 leading-tight">Data Catalog</p>
@@ -63,8 +63,8 @@ export function Sidebar({ isTerminalOpen, onToggleTerminal }: SidebarProps) {
               className={clsx(
                 'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
                 isActive
-                  ? 'bg-coffee-800 text-white font-medium'
-                  : 'text-cream-400 hover:bg-coffee-900 hover:text-cream-100'
+                  ? 'bg-brand-800 text-white font-medium'
+                  : 'text-cream-400 hover:bg-brand-900 hover:text-cream-200'
               )}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
@@ -72,7 +72,7 @@ export function Sidebar({ isTerminalOpen, onToggleTerminal }: SidebarProps) {
               {count !== null && (
                 <span className={clsx(
                   'text-xs px-1.5 py-0.5 rounded-full',
-                  isActive ? 'bg-coffee-700 text-cream-200' : 'bg-coffee-900 text-cream-500'
+                  isActive ? 'bg-brand-700 text-cream-300' : 'bg-brand-900 text-cream-500'
                 )}>
                   {count}
                 </span>
@@ -82,21 +82,21 @@ export function Sidebar({ isTerminalOpen, onToggleTerminal }: SidebarProps) {
         })}
       </nav>
 
-      <div className="px-3 py-3 border-t border-coffee-900">
+      <div className="px-3 py-3 border-t border-brand-800">
         <button
           onClick={onToggleTerminal}
           className={clsx(
             'flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-colors',
             isTerminalOpen
               ? 'bg-accent-700 text-white'
-              : 'text-cream-400 hover:bg-coffee-900 hover:text-cream-100'
+              : 'text-cream-400 hover:bg-brand-900 hover:text-cream-200'
           )}
         >
           <Terminal className="w-4 h-4 flex-shrink-0" />
           <span className="flex-1 text-left">Terminal</span>
           <kbd className={clsx(
             'text-[10px] px-1.5 py-0.5 rounded',
-            isTerminalOpen ? 'bg-accent-800 text-accent-200' : 'bg-coffee-900 text-cream-600'
+            isTerminalOpen ? 'bg-accent-800 text-accent-200' : 'bg-brand-900 text-cream-600'
           )}>
             {navigator.platform?.includes('Mac') ? '\u2318' : 'Ctrl'}+`
           </kbd>

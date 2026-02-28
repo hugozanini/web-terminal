@@ -86,7 +86,7 @@ export function Pipelines() {
           <select
             value={sortKey}
             onChange={(e) => { setSortKey(e.target.value as SortKey); setPage(1); }}
-            className="text-sm border border-cream-200 rounded-lg px-3 py-2 bg-white text-cream-700 focus:outline-none focus:ring-2 focus:ring-coffee-300"
+            className="text-sm border border-cream-200 rounded-lg px-3 py-2 bg-white text-cream-700 focus:outline-none focus:ring-2 focus:ring-brand-300"
           >
             <option value="date">Sort by Date</option>
             <option value="duration">Sort by Duration</option>

@@ -39,7 +39,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
             className={clsx(
               'w-8 h-8 text-sm rounded-lg transition-colors',
               page === currentPage
-                ? 'bg-coffee-600 text-white font-medium'
+                ? 'bg-brand-900 text-white font-medium'
                 : 'text-cream-600 hover:bg-cream-100 hover:text-cream-900'
             )}
           >
