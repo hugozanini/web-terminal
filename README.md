@@ -1,270 +1,187 @@
-# Happy Coffee Data Catalog
+# Web Terminal
 
-A web application for Happy Coffee, a Brazilian coffee exporter, featuring a comprehensive data catalog with an integrated local terminal for seamless workflow.
+A local terminal embedded in a web interface. Browse a web application on one side, operate your machine's shell on the other -- same window, full context on both ends.
 
-## Features
+## The idea
 
-### Data Catalog
-View and explore realistic coffee trading data including:
+Web applications show you data, dashboards, logs, catalogs. But acting on what you see usually means switching to a separate terminal window, losing visual context. This project removes that gap: the terminal lives inside the page, connected to your real local shell, so you can look at the UI and run commands side by side.
 
-- **Coffee Bean Samples**: Brazilian varieties (Arabica, Robusta) from regions like Minas Gerais, São Paulo, and Bahia with farm origins, quality scores, and certifications
-- **Shipments**: Export containers from Brazilian ports (Santos, Rio de Janeiro, Vitória) to worldwide destinations with tracking
-- **Orders**: Customer orders from international roasters and distributors with pricing and delivery information
-- **Lineage**: Complete traceability from farm → processing → warehouse → quality control → export
-- **Processing Runs**: Washing, drying, hulling, sorting operations with parameters and quality metrics
-- **Logs**: Real-time system logs for quality checks, shipping events, and inspections
-- **Costs**: Detailed cost breakdowns by category (production, processing, shipping, export, labor, equipment)
+The connection is straightforward. A lightweight backend spawns a pseudo-terminal (PTY) using `node-pty` and exposes it over a WebSocket. The frontend renders that PTY stream with `xterm.js`. Every keystroke travels through the WebSocket to your shell; every byte of output travels back. The result is a fully interactive terminal session -- not a simulation, not a sandbox, but your actual machine.
 
-### Integrated Terminal
-- **Toggle Button**: Floating button in bottom-right corner to show/hide terminal
-- **Split View**: Side-by-side layout with catalog (60%) and terminal (40%)
-- **Local Shell**: Full access to your local shell (bash/zsh) with all your tools and environment
-- **Real-time**: WebSocket-based connection for instant command execution
-- **Resizable**: Terminal automatically fits to container size
+### Why this matters
 
-## Tech Stack
+When the terminal shares the screen with a web interface, new interaction patterns become possible:
 
-- **Frontend**: React 18, TypeScript, Vite, TailwindCSS, Xterm.js, React Router, Zustand, Faker.js
-- **Backend**: Node.js, Express, TypeScript, node-pty, WebSocket
-- **Architecture**: Monorepo with npm workspaces
+- **Inspect what you see.** A data catalog shows a record; you query the same database from the terminal without leaving the page.
+- **Operate from context.** A dashboard highlights an anomaly; you SSH into the relevant host or tail the logs right there.
+- **Script alongside UI.** Write a quick pipeline, run it, and watch the UI reflect the results -- all in one viewport.
+- **Local tools, remote data.** The web page fetches and displays remote data; the terminal gives you local tools (grep, awk, jq, python, git) to process or act on it.
 
-## Prerequisites
+This is the starting point. The current demo pairs the terminal with a coffee export data catalog, but the underlying architecture is application-agnostic. Any web UI can host the terminal panel.
 
-- **Node.js**: >= 18.0.0
-- **npm**: Latest version
-- **Operating System**: macOS, Linux, or Windows (with WSL recommended)
+## How it works
 
-## Installation
+```
+Browser                          Server                        OS
++-----------------------+        +--------------------+        +-------+
+| xterm.js              |  WS    | WebSocket handler  |  PTY   | shell |
+| (renders terminal)    |<------>| (JSON messages)    |<------>| (bash |
+|                       |        |                    |        |  zsh) |
++-----------------------+        +--------------------+        +-------+
+| React app             |        | Express + HTTP     |
+| (catalog / any UI)    |        | (health check)     |
++-----------------------+        +--------------------+
+```
 
-1. **Clone the repository** (if not already done):
-   ```bash
-   git clone <repository-url>
-   cd web-terminal
-   ```
+### Connection lifecycle
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+1. User clicks the terminal toggle button in the browser.
+2. The `Terminal` React component mounts and creates an xterm.js instance.
+3. The `useTerminal` hook opens a WebSocket to `ws://localhost:3001/terminal`.
+4. On the server, `websocket-handler.ts` receives the connection and asks `PTYManager` to spawn the user's shell (`$SHELL` or `/bin/bash`).
+5. From this point on, communication is bidirectional:
+   - **Keystrokes** (client to server): `{ "type": "input", "data": "ls\n" }`
+   - **Shell output** (server to client): `{ "type": "output", "data": "file1.txt\nfile2.txt\n" }`
+   - **Resize** (client to server): `{ "type": "resize", "cols": 120, "rows": 40 }`
+   - **Exit** (server to client): `{ "type": "exit", "code": 0 }`
+6. When the WebSocket closes (user hides the terminal or navigates away), the PTY process is killed.
 
-   This will install dependencies for both frontend and backend packages.
+### Tech stack
 
-## Development
+| Layer | Technology | Role |
+|-------|-----------|------|
+| Terminal rendering | xterm.js + FitAddon | Renders the PTY stream in the browser, auto-fits to container |
+| Frontend framework | React 18, TypeScript, Vite | Hosts the terminal component and the demo UI |
+| Styling | TailwindCSS | Layout and split-view panel |
+| State | Zustand | Application state (used by the demo catalog) |
+| WebSocket (client) | Native browser WebSocket | Sends keystrokes, receives output |
+| WebSocket (server) | ws | Accepts terminal connections at `/terminal` |
+| PTY | node-pty | Spawns a real shell process with full TTY support |
+| HTTP server | Express | Health check, serves as the WebSocket upgrade target |
+| Monorepo | npm workspaces | `packages/frontend` and `packages/backend` |
 
-### Start Development Servers
+## Getting started
 
-Start both frontend and backend in development mode:
+### Prerequisites
+
+- **Node.js** >= 18.0.0
+- **npm** (latest)
+- **macOS**, **Linux**, or **Windows** (WSL recommended)
+- Build tools for native compilation (`xcode-select --install` on macOS, `build-essential` on Linux)
+
+### Install and run
 
 ```bash
+git clone <repository-url>
+cd web-terminal
+npm install
 npm run dev
 ```
 
-This will:
-- Start the **frontend** at http://localhost:5173
-- Start the **backend** at http://localhost:3001
-- Enable **WebSocket terminal** at ws://localhost:3001/terminal
+This starts:
+- Frontend at **http://localhost:5173**
+- Backend at **http://localhost:3001**
+- WebSocket terminal at **ws://localhost:3001/terminal**
 
-### Access the Application
+### Using the terminal
 
-1. Open your browser and navigate to http://localhost:5173
-2. Browse the coffee catalog using the navigation menu
-3. Click the **terminal button** (floating in bottom-right corner) to open the integrated terminal
-4. Use the terminal just like your local shell - all your commands, tools, and environment variables are available
+1. Open http://localhost:5173 in your browser.
+2. Click the floating terminal button in the bottom-right corner.
+3. The page splits: your web UI on the left (60%), a live terminal on the right (40%).
+4. Type commands. This is your real shell -- your PATH, aliases, environment variables, and tools are all available.
+5. Click the button again to hide the terminal.
 
-### Navigation
-
-- **Data Samples**: Browse coffee bean samples from Brazilian farms
-- **Lineage**: View traceability chains from farm to export
-- **Runs**: Explore processing operations with metrics
-- **Logs**: Monitor system logs and events
-- **Costs**: Analyze cost breakdowns and totals
-
-## Project Structure
+## Project structure
 
 ```
 web-terminal/
-├── packages/
-│   ├── frontend/              # React application
-│   │   ├── src/
-│   │   │   ├── components/
-│   │   │   │   ├── catalog/  # Data visualization components
-│   │   │   │   ├── terminal/ # Terminal integration
-│   │   │   │   └── layout/   # Layout components
-│   │   │   ├── data/
-│   │   │   │   ├── types.ts  # TypeScript definitions
-│   │   │   │   └── generators/ # Fake data generators
-│   │   │   ├── store/        # Zustand state management
-│   │   │   └── hooks/        # Custom React hooks
-│   │   ├── vite.config.ts
-│   │   └── package.json
-│   │
-│   └── backend/               # Express server
-│       ├── src/
-│       │   ├── index.ts      # Server entry point
-│       │   ├── terminal/
-│       │   │   ├── pty-manager.ts       # node-pty integration
-│       │   │   ├── websocket-handler.ts # WebSocket server
-│       │   │   └── types.ts
-│       │   └── utils/
-│       ├── tsconfig.json
-│       └── package.json
-│
-├── package.json              # Root workspace config
-├── README.md
-└── .gitignore
++-- packages/
+|   +-- frontend/                  # React application
+|   |   +-- src/
+|   |       +-- components/
+|   |       |   +-- terminal/      # Terminal.tsx, useTerminal.ts, TerminalToggle.tsx
+|   |       |   +-- layout/        # Header, Navigation, SplitView
+|   |       |   +-- catalog/       # Demo data catalog pages
+|   |       +-- data/              # Types and Faker.js generators (demo)
+|   |       +-- store/             # Zustand store (demo)
+|   |
+|   +-- backend/                   # Express + WebSocket server
+|       +-- src/
+|           +-- index.ts           # HTTP server + WebSocket setup
+|           +-- terminal/
+|               +-- pty-manager.ts        # Spawns and manages the PTY process
+|               +-- websocket-handler.ts  # Bridges WebSocket <-> PTY
+|               +-- types.ts              # TerminalMessage, TerminalSize
+|
++-- package.json                   # Workspace root, postinstall script
 ```
 
-## Build for Production
+The terminal integration lives entirely in three files on the frontend (`Terminal.tsx`, `useTerminal.ts`, `TerminalToggle.tsx`) and three on the backend (`pty-manager.ts`, `websocket-handler.ts`, `types.ts`). Everything else is the demo application.
 
-Build both packages:
+## The demo: Happy Coffee Data Catalog
+
+The included demo UI is a data catalog for a fictional Brazilian coffee exporter. It generates realistic data client-side using Faker.js (seeded for consistency) and provides pages for samples, lineage, processing runs, logs, and costs. The catalog is there to demonstrate the terminal alongside a real-looking web application -- it is not the focus of this project.
+
+## Build for production
 
 ```bash
 npm run build
 ```
 
 Output:
-- Frontend build: `packages/frontend/dist/`
-- Backend build: `packages/backend/dist/`
-
-## Run Production Build
-
-After building:
+- `packages/frontend/dist/` (static files, serve with any HTTP server)
+- `packages/backend/dist/` (Node.js server)
 
 ```bash
 # Start backend
-cd packages/backend
-npm start
+cd packages/backend && npm start
 
-# Serve frontend (use any static file server)
-cd packages/frontend
-npx serve dist
-```
-
-## How It Works
-
-### Data Generation
-- All catalog data is generated client-side using Faker.js
-- Uses a deterministic seed (`happy-coffee-2024`) for consistent data across sessions
-- Data includes realistic Brazilian coffee regions, ports, and export destinations
-
-### Terminal Integration
-1. **Backend**: Uses node-pty to spawn your local shell process
-2. **WebSocket**: Bidirectional communication between frontend and backend
-3. **Frontend**: Xterm.js renders the terminal in the browser
-4. **Protocol**: Simple JSON messages for input/output/resize/exit events
-
-### WebSocket Protocol
-
-**Client → Server:**
-```json
-{ "type": "input", "data": "ls\n" }
-{ "type": "resize", "cols": 80, "rows": 30 }
-```
-
-**Server → Client:**
-```json
-{ "type": "output", "data": "file1.txt\nfile2.txt\n" }
-{ "type": "exit", "code": 0 }
+# Serve frontend
+cd packages/frontend && npx serve dist
 ```
 
 ## Troubleshooting
 
-### Terminal Won't Connect
+**Terminal won't connect**
+1. Verify the backend is running: `curl http://localhost:3001/health`
+2. Check the browser console for WebSocket errors.
+3. Make sure port 3001 is not blocked or already in use.
 
-1. Check if backend is running on port 3001:
-   ```bash
-   curl http://localhost:3001/health
-   ```
+**node-pty installation fails**
+node-pty compiles a native addon. Install platform build tools first (`xcode-select --install` on macOS, `apt-get install build-essential python3` on Linux). Then clean and reinstall:
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
 
-2. Check WebSocket URL in browser console
+**posix_spawnp failed (macOS)**
+npm sometimes strips execute permissions from prebuilt binaries. The `postinstall` script in `package.json` handles this automatically. If it still fails, run manually:
+```bash
+chmod +x node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper
+chmod +x node_modules/node-pty/prebuilds/darwin-x64/spawn-helper
+```
 
-3. Ensure no firewall is blocking port 3001
+**Wrong shell**
+The backend reads `$SHELL` to decide which shell to spawn. Check with `echo $SHELL` and change with `chsh -s /bin/zsh` (or your preferred shell).
 
-### node-pty Installation Issues
+## Security
 
-node-pty requires native compilation. If installation fails:
+This application gives the browser **direct access to your local shell** with your user privileges. It is built for local development use.
 
-1. Install build tools:
-   - **macOS**: `xcode-select --install`
-   - **Linux**: `apt-get install build-essential python3`
-   - **Windows**: Install Visual Studio Build Tools
+**Do not** expose it to the network or deploy it publicly without adding authentication, authorization, and sandboxing. The terminal can read and write your file system, execute any command, and access all environment variables.
 
-2. Clear npm cache and reinstall:
-   ```bash
-   npm cache clean --force
-   rm -rf node_modules package-lock.json
-   npm install
-   ```
+## What's next
 
-### Terminal Shows Wrong Shell
+This project is a starting point for exploring what becomes possible when a terminal and a web UI share the same screen. Some directions worth investigating:
 
-The terminal uses `process.env.SHELL` to detect your shell. To change:
-
-1. Check your current shell:
-   ```bash
-   echo $SHELL
-   ```
-
-2. Set it as default if needed:
-   ```bash
-   chsh -s /bin/zsh  # or /bin/bash
-   ```
-
-## Security Note
-
-⚠️ **Important**: This application provides **direct access to your local shell** with full system privileges. It is designed for **local development only** and should **NEVER** be exposed to the internet without proper authentication, authorization, and sandboxing.
-
-The integrated terminal:
-- Has full access to your file system
-- Can execute any command
-- Uses your user permissions
-- Forwards all environment variables
-
-**DO NOT**:
-- Deploy this to a public server without security measures
-- Share your running instance over the network
-- Use this in a production environment without proper sandboxing
-
-## Data
-
-The application generates fake but realistic data for:
-- 50 coffee bean samples from Brazilian farms
-- 20 export shipments to international destinations
-- 30 customer orders
-- 40 processing runs
-- 100 system log entries
-- 80 cost entries
-
-All data uses:
-- Real Brazilian coffee regions and ports
-- Authentic coffee varieties (Bourbon, Catuaí, Mundo Novo, etc.)
-- Actual processing methods (Natural, Washed, Honey, Pulped Natural)
-- International export destinations
-
-## Future Enhancements
-
-Potential features for future development:
-- Persistent data storage (SQLite/PostgreSQL)
-- User authentication and authorization
-- Terminal session recording/playback
-- Multiple terminal tabs
-- Advanced lineage visualization with D3.js
-- Real-time cost analysis charts
-- CSV/JSON data export
-- Integration with real coffee trading APIs
-- Multi-user collaboration
+- **Terminal-driven UI interaction** -- commands that query or manipulate what the web page displays
+- **UI-driven terminal commands** -- clicking elements in the web UI that populate or trigger terminal commands
+- **Context bridging** -- sharing state between the web application and the terminal session (selected records, filters, environment)
+- **Session persistence** -- reconnecting to existing terminal sessions after page reloads
+- **Multiple terminals** -- tabbed or tiled terminal panels
+- **Authenticated access** -- making this safe for deployment beyond localhost
+- **Programmatic terminal control** -- the web app sending commands to the terminal on the user's behalf
 
 ## License
 
 MIT
-
-## Support
-
-For issues or questions:
-1. Check the troubleshooting section above
-2. Review the console logs in browser DevTools
-3. Check backend logs in the terminal where you ran `npm run dev`
-
----
-
-Built with ☕ for Happy Coffee - Exporting the best of Brazilian coffee to the world!
