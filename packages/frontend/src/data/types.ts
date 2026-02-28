@@ -34,9 +34,41 @@ export interface DataSource {
   description: string;
 }
 
+export interface Pipeline {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  type: 'Ingestion' | 'Transformation' | 'Quality Check' | 'Export' | 'Aggregation';
+  owner: string;
+  schedule: {
+    enabled: boolean;
+    cron: string;
+    timezone: string;
+    nextRun: Date;
+  } | null;
+  engine: string;
+  cluster: string;
+  inputDatasets: string[];
+  outputDatasets: string[];
+  tags: string[];
+  createdAt: Date;
+  lastRunStatus: 'Success' | 'Failed' | 'Running' | 'Cancelled' | 'Never';
+  lastRunTime: Date | null;
+  avgDuration: number;
+  totalRuns: number;
+}
+
+export interface PipelineRunLog {
+  timestamp: Date;
+  level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
+  message: string;
+}
+
 export interface PipelineRun {
   id: string;
   runNumber: string;
+  pipelineId: string;
   pipelineName: string;
   type: 'Ingestion' | 'Transformation' | 'Quality Check' | 'Export' | 'Aggregation';
   status: 'Success' | 'Failed' | 'Running' | 'Cancelled';
@@ -49,6 +81,7 @@ export interface PipelineRun {
   inputDatasets: string[];
   outputDatasets: string[];
   parameters: Record<string, unknown>;
+  logs: PipelineRunLog[];
 }
 
 export interface LineageNode {
@@ -95,6 +128,7 @@ export interface CatalogData {
   datasets: Dataset[];
   dataSources: DataSource[];
   lineage: LineageNode[];
+  pipelines: Pipeline[];
   pipelineRuns: PipelineRun[];
   qualityChecks: QualityEntry[];
   costs: CostEntry[];

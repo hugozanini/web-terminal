@@ -14,9 +14,13 @@ export function useCatalogData() {
     datasets: store.datasets,
     dataSources: store.dataSources,
     lineage: store.lineage,
+    pipelines: store.pipelines,
     pipelineRuns: store.pipelineRuns,
     qualityChecks: store.qualityChecks,
     costs: store.costs,
     regenerate: store.regenerate,
+    addPipelineRun: store.addPipelineRun,
+    updatePipelineRun: store.updatePipelineRun,
+    updatePipeline: store.updatePipeline,
   };
 }
