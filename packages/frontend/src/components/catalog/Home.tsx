@@ -65,12 +65,8 @@ export function Home() {
       }));
     }
 
-    if (search) {
-      const q = search.toLowerCase();
-      return rows.filter((r) => r.name.toLowerCase().includes(q) || r.meta.toLowerCase().includes(q));
-    }
     return rows;
-  }, [activeTab, datasets, dataSources, pipelineRuns, search]);
+  }, [activeTab, datasets, dataSources, pipelineRuns]);
 
   const typeIcons: Record<string, typeof Database> = {
     Dataset: Database, Source: Server, Pipeline: Play,
@@ -98,6 +94,13 @@ export function Home() {
     return <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />;
   };
 
+  const handleSearch = () => {
+    const trimmed = search.trim();
+    if (trimmed) {
+      navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+    }
+  };
+
   return (
     <div>
       <div className="bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 rounded-2xl p-6 mb-8 text-white">
@@ -109,6 +112,7 @@ export function Home() {
           <SearchInput
             value={search}
             onChange={setSearch}
+            onSubmit={handleSearch}
             placeholder="Search datasets, sources, pipelines..."
             showShortcut
             className="max-w-lg mx-auto"
@@ -170,7 +174,7 @@ export function Home() {
                 );
               })}
               {assetRows.length === 0 && (
-                <div className="px-4 py-8 text-center text-cream-400 text-sm">No assets match your search</div>
+                <div className="px-4 py-8 text-center text-cream-400 text-sm">No assets found</div>
               )}
             </div>
           </div>
