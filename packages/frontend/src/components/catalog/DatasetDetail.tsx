@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
   Database,
@@ -9,6 +9,7 @@ import {
   Server,
   Play,
   DollarSign,
+  ExternalLink,
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -84,17 +85,32 @@ function freshnessLabel(lastUpdated: Date): string {
 
 type TabKey = 'overview' | 'lineage' | 'pipelines' | 'costs';
 
-const pipelineColumns: Column<PipelineRun>[] = [
-  { key: 'pipeline', header: 'Pipeline', width: '180px', sortable: true, sortValue: (r) => r.pipelineName, render: (r) => <span className="text-xs font-medium font-mono">{r.pipelineName}</span> },
-  { key: 'run', header: 'Run', width: '120px', render: (r) => <span className="text-xs text-cream-500">{r.runNumber}</span> },
-  { key: 'type', header: 'Type', width: '120px', sortable: true, sortValue: (r) => r.type, render: (r) => <span className="text-xs">{r.type}</span> },
-  { key: 'status', header: 'Status', width: '90px', sortable: true, sortValue: (r) => r.status, render: (r) => {
-    const color = r.status === 'Success' ? 'text-emerald-600' : r.status === 'Failed' ? 'text-red-600' : r.status === 'Running' ? 'text-blue-600' : 'text-cream-500';
-    return <span className={clsx('text-xs font-medium', color)}>{r.status}</span>;
-  }},
-  { key: 'records', header: 'Records', width: '100px', sortable: true, sortValue: (r) => r.recordsProcessed, render: (r) => <span className="text-xs">{r.recordsProcessed.toLocaleString()}</span> },
-  { key: 'date', header: 'Date', width: '110px', sortable: true, sortValue: (r) => new Date(r.startTime).getTime(), render: (r) => <span className="text-xs text-cream-600">{new Date(r.startTime).toLocaleDateString()}</span> },
-];
+function PipelineLink({ run, pipelineList }: { run: PipelineRun; pipelineList: { id: string; name: string }[] }) {
+  const p = pipelineList.find((pl) => pl.id === run.pipelineId);
+  if (p) {
+    return (
+      <Link to={`/pipelines/${p.id}`} className="text-xs font-medium font-mono text-brand-700 hover:text-brand-900 hover:underline inline-flex items-center gap-1">
+        {run.pipelineName}
+        <ExternalLink className="w-3 h-3" />
+      </Link>
+    );
+  }
+  return <span className="text-xs font-medium font-mono">{run.pipelineName}</span>;
+}
+
+function makePipelineColumns(pList: { id: string; name: string }[]): Column<PipelineRun>[] {
+  return [
+    { key: 'pipeline', header: 'Pipeline', width: '200px', sortable: true, sortValue: (r) => r.pipelineName, render: (r) => <PipelineLink run={r} pipelineList={pList} /> },
+    { key: 'run', header: 'Run', width: '120px', render: (r) => <span className="text-xs text-cream-500">{r.runNumber}</span> },
+    { key: 'type', header: 'Type', width: '120px', sortable: true, sortValue: (r) => r.type, render: (r) => <span className="text-xs">{r.type}</span> },
+    { key: 'status', header: 'Status', width: '90px', sortable: true, sortValue: (r) => r.status, render: (r) => {
+      const color = r.status === 'Success' ? 'text-emerald-600' : r.status === 'Failed' ? 'text-red-600' : r.status === 'Running' ? 'text-blue-600' : 'text-cream-500';
+      return <span className={clsx('text-xs font-medium', color)}>{r.status}</span>;
+    }},
+    { key: 'records', header: 'Records', width: '100px', sortable: true, sortValue: (r) => r.recordsProcessed, render: (r) => <span className="text-xs">{r.recordsProcessed.toLocaleString()}</span> },
+    { key: 'date', header: 'Date', width: '110px', sortable: true, sortValue: (r) => new Date(r.startTime).getTime(), render: (r) => <span className="text-xs text-cream-600">{new Date(r.startTime).toLocaleDateString()}</span> },
+  ];
+}
 
 const costColumns: Column<CostEntry>[] = [
   { key: 'date', header: 'Date', width: '100px', sortable: true, sortValue: (r) => new Date(r.date).getTime(), render: (r) => <span className="text-xs text-cream-600">{new Date(r.date).toLocaleDateString()}</span> },
@@ -107,7 +123,7 @@ const costColumns: Column<CostEntry>[] = [
 export function DatasetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { datasets, lineage, pipelineRuns, costs } = useCatalogData();
+  const { datasets, lineage, pipelines, pipelineRuns, costs } = useCatalogData();
   const [tab, setTab] = useState<TabKey>('overview');
 
   const dataset = datasets.find((d) => d.id === id);
@@ -289,7 +305,7 @@ export function DatasetDetail() {
 
       {tab === 'pipelines' && (
         datasetPipelines.length > 0 ? (
-          <DataTable columns={pipelineColumns} data={datasetPipelines} pageSize={10} keyExtractor={(r) => r.id} />
+          <DataTable columns={makePipelineColumns(pipelines)} data={datasetPipelines} pageSize={10} keyExtractor={(r) => r.id} />
         ) : (
           <div className="text-center py-12 text-cream-400 text-sm">
             <Play className="w-8 h-8 mx-auto mb-2 text-cream-300" />
