@@ -19,7 +19,7 @@ export function generateLineage(datasetIds: string[]): LineageNode[] {
 
   for (const datasetId of trackedDatasets) {
     let parentId: string | undefined;
-    const baseDate = faker.date.between({ from: new Date(2025, 6, 1), to: new Date(2025, 9, 1) });
+    const baseDate = faker.date.recent({ days: 90 });
 
     for (let step = 0; step < LINEAGE_CHAIN.length; step++) {
       const stage = LINEAGE_CHAIN[step];

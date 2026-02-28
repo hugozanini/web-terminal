@@ -75,7 +75,7 @@ export function generateQualityChecks(count: number, datasets: Dataset[]): Quali
 
     entries.push({
       id: faker.string.uuid(),
-      timestamp: faker.date.between({ from: new Date(2026, 1, 1), to: new Date(2026, 1, 28) }),
+      timestamp: faker.date.recent({ days: 30 }),
       checkType,
       severity,
       datasetId: dataset.id,
