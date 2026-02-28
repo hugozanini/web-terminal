@@ -9,6 +9,7 @@ import { Lineage } from './components/catalog/Lineage';
 import { Pipelines } from './components/catalog/Pipelines';
 import { Quality } from './components/catalog/Quality';
 import { Costs } from './components/catalog/Costs';
+import { SearchResults } from './components/catalog/SearchResults';
 
 function App() {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -34,6 +35,7 @@ function App() {
         <ContentShell isTerminalOpen={isTerminalOpen}>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/search" element={<SearchResults />} />
             <Route path="/datasets" element={<Datasets />} />
             <Route path="/datasets/:id" element={<DatasetDetail />} />
             <Route path="/lineage" element={<Lineage />} />
