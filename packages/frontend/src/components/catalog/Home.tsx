@@ -131,7 +131,7 @@ export function Home() {
 
           <div className="bg-white border border-cream-200 rounded-xl shadow-card">
             <div className="px-4 pt-4 pb-0 border-b border-cream-100">
-              <div className="flex gap-1 overflow-x-auto">
+              <div className="flex gap-1">
                 {tabs.map((tab) => (
                   <button
                     key={tab.key}

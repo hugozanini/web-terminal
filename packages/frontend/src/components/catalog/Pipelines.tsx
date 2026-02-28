@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Hash, Zap, Calendar, ChevronRight } from 'lucide-react';
+import {
+  Clock, Hash, Zap, Calendar, ChevronRight,
+  CheckCircle2, Activity, Timer,
+} from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { PageHeader } from '../layout/PageHeader';
-import { SearchInput } from '../ui/SearchInput';
-import { FilterChips } from '../ui/FilterChips';
 import { Pagination } from '../ui/Pagination';
 import { useCatalogData } from '../../hooks/useCatalogData';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
@@ -11,7 +13,7 @@ import clsx from 'clsx';
 
 const PAGE_SIZE = 12;
 
-type SortKey = 'name' | 'lastRun' | 'runs';
+type SortKey = 'name' | 'lastRun' | 'runs' | 'duration';
 
 const statusColors: Record<string, { badge: string; border: string; dot: string }> = {
   Success:   { badge: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-400', dot: 'bg-emerald-400' },
@@ -29,6 +31,20 @@ function formatDuration(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
+const engineOptions = [
+  { value: 'dbt', label: 'dbt' },
+  { value: 'Spark', label: 'Spark' },
+  { value: 'Airflow', label: 'Airflow' },
+  { value: 'Fivetran', label: 'Fivetran' },
+  { value: 'Kafka Connect', label: 'Kafka Connect' },
+  { value: 'Great Expectations', label: 'Great Expectations' },
+];
+
+const scheduleOptions = [
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'unscheduled', label: 'Unscheduled' },
+];
+
 export function Pipelines() {
   const { pipelines, pipelineRuns } = useCatalogData();
   const navigate = useNavigate();
@@ -36,6 +52,8 @@ export function Pipelines() {
   const [search, setSearch] = useState('');
   const [types, setTypes] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
+  const [engines, setEngines] = useState<string[]>([]);
+  const [scheduleFilter, setScheduleFilter] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('lastRun');
   const [page, setPage] = useState(1);
 
@@ -57,6 +75,20 @@ export function Pipelines() {
     return map;
   }, [pipelineRuns]);
 
+  const dashboardStats = useMemo(() => {
+    const total = pipelines.length;
+    const successCount = pipelines.filter((p) => p.lastRunStatus === 'Success').length;
+    const runningCount = pipelines.filter((p) => p.lastRunStatus === 'Running').length;
+    const failedCount = pipelines.filter((p) => p.lastRunStatus === 'Failed').length;
+    const successRate = total > 0 ? Math.round((successCount / total) * 100) : 0;
+    const activePipelines = pipelines.filter((p) => p.lastRunStatus !== 'Never').length;
+    const avgDuration = pipelines.length > 0
+      ? Math.round(pipelines.reduce((sum, p) => sum + p.avgDuration, 0) / pipelines.length)
+      : 0;
+    const scheduledCount = pipelines.filter((p) => p.schedule?.enabled).length;
+    return { total, successCount, runningCount, failedCount, successRate, activePipelines, avgDuration, scheduledCount };
+  }, [pipelines]);
+
   const filtered = useMemo(() => {
     let result = pipelines;
 
@@ -74,6 +106,17 @@ export function Pipelines() {
     if (statuses.length > 0) {
       result = result.filter((p) => statuses.includes(p.lastRunStatus));
     }
+    if (engines.length > 0) {
+      result = result.filter((p) => engines.includes(p.engine));
+    }
+    if (scheduleFilter.length > 0) {
+      result = result.filter((p) => {
+        const isScheduled = p.schedule?.enabled ?? false;
+        if (scheduleFilter.includes('scheduled') && isScheduled) return true;
+        if (scheduleFilter.includes('unscheduled') && !isScheduled) return true;
+        return false;
+      });
+    }
 
     const sorted = [...result];
     switch (sortKey) {
@@ -84,12 +127,15 @@ export function Pipelines() {
         return tb - ta;
       }); break;
       case 'runs': sorted.sort((a, b) => (runCounts[b.id] || 0) - (runCounts[a.id] || 0)); break;
+      case 'duration': sorted.sort((a, b) => b.avgDuration - a.avgDuration); break;
     }
     return sorted;
-  }, [pipelines, search, types, statuses, sortKey, runCounts]);
+  }, [pipelines, search, types, statuses, engines, scheduleFilter, sortKey, runCounts]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const pageData = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const activeFilterCount = types.length + statuses.length + engines.length + scheduleFilter.length;
 
   return (
     <div>
@@ -105,21 +151,126 @@ export function Pipelines() {
             <option value="lastRun">Sort by Last Run</option>
             <option value="name">Sort by Name</option>
             <option value="runs">Sort by Run Count</option>
+            <option value="duration">Sort by Avg Duration</option>
           </select>
         }
       />
 
-      <div className="space-y-4 mb-6">
-        <SearchInput
-          value={search}
-          onChange={(v) => { setSearch(v); setPage(1); }}
-          placeholder="Search by pipeline name or description..."
-        />
-        <div className="flex flex-wrap gap-4">
-          <FilterChips options={typeOptions} selected={types} onChange={(t) => { setTypes(t); setPage(1); }} />
-          <div className="w-px bg-cream-200" />
-          <FilterChips options={statusOptions} selected={statuses} onChange={(s) => { setStatuses(s); setPage(1); }} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <p className="text-xs text-cream-500 uppercase tracking-wide">Success Rate</p>
+          </div>
+          <p className="text-2xl font-bold text-cream-900">{dashboardStats.successRate}%</p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <div className="flex-1 h-1.5 bg-cream-100 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${dashboardStats.successRate}%` }} />
+            </div>
+            <span className="text-[10px] text-cream-400">{dashboardStats.successCount}/{dashboardStats.total}</span>
+          </div>
         </div>
+        <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Activity className="w-4 h-4 text-blue-500" />
+            <p className="text-xs text-cream-500 uppercase tracking-wide">Active Pipelines</p>
+          </div>
+          <p className="text-2xl font-bold text-cream-900">{dashboardStats.activePipelines}</p>
+          <div className="flex items-center gap-3 mt-1.5 text-[10px]">
+            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />{dashboardStats.runningCount} running</span>
+            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-400" />{dashboardStats.failedCount} failed</span>
+          </div>
+        </div>
+        <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Timer className="w-4 h-4 text-amber-500" />
+            <p className="text-xs text-cream-500 uppercase tracking-wide">Avg Duration</p>
+          </div>
+          <p className="text-2xl font-bold text-cream-900">{formatDuration(dashboardStats.avgDuration)}</p>
+          <p className="text-[10px] text-cream-400 mt-1.5">Across all pipelines</p>
+        </div>
+        <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="w-4 h-4 text-violet-500" />
+            <p className="text-xs text-cream-500 uppercase tracking-wide">Scheduled</p>
+          </div>
+          <p className="text-2xl font-bold text-cream-900">{dashboardStats.scheduledCount}</p>
+          <p className="text-[10px] text-cream-400 mt-1.5">{dashboardStats.total - dashboardStats.scheduledCount} manual/event-driven</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-6">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cream-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search pipelines..."
+            className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-cream-200 rounded-lg text-cream-950 placeholder-cream-400 focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-300 transition-colors"
+          />
+        </div>
+        <select
+          value={statuses.length === 1 ? statuses[0] : ''}
+          onChange={(e) => { setStatuses(e.target.value ? [e.target.value] : []); setPage(1); }}
+          className={clsx(
+            'text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors',
+            statuses.length > 0 ? 'border-brand-300 text-brand-800' : 'border-cream-200 text-cream-600'
+          )}
+        >
+          <option value="">All Statuses</option>
+          {statusOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label} ({o.count})</option>
+          ))}
+        </select>
+        <select
+          value={types.length === 1 ? types[0] : ''}
+          onChange={(e) => { setTypes(e.target.value ? [e.target.value] : []); setPage(1); }}
+          className={clsx(
+            'text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors',
+            types.length > 0 ? 'border-brand-300 text-brand-800' : 'border-cream-200 text-cream-600'
+          )}
+        >
+          <option value="">All Types</option>
+          {typeOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label} ({o.count})</option>
+          ))}
+        </select>
+        <select
+          value={engines.length === 1 ? engines[0] : ''}
+          onChange={(e) => { setEngines(e.target.value ? [e.target.value] : []); setPage(1); }}
+          className={clsx(
+            'text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors',
+            engines.length > 0 ? 'border-brand-300 text-brand-800' : 'border-cream-200 text-cream-600'
+          )}
+        >
+          <option value="">All Engines</option>
+          {engineOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <select
+          value={scheduleFilter.length === 1 ? scheduleFilter[0] : ''}
+          onChange={(e) => { setScheduleFilter(e.target.value ? [e.target.value] : []); setPage(1); }}
+          className={clsx(
+            'text-sm border rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors',
+            scheduleFilter.length > 0 ? 'border-brand-300 text-brand-800' : 'border-cream-200 text-cream-600'
+          )}
+        >
+          <option value="">All Schedules</option>
+          {scheduleOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        {activeFilterCount > 0 && (
+          <button
+            onClick={() => { setTypes([]); setStatuses([]); setEngines([]); setScheduleFilter([]); setPage(1); }}
+            className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 transition-colors px-2 py-2 rounded-lg border border-brand-200 bg-brand-50 flex-shrink-0"
+          >
+            <X className="w-3 h-3" />
+            Clear ({activeFilterCount})
+          </button>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -143,6 +294,11 @@ export function Pipelines() {
                     <span className={clsx('text-xs font-semibold px-2.5 py-0.5 rounded-full', sColors.badge)}>
                       {pipeline.lastRunStatus}
                     </span>
+                    {pipeline.schedule?.enabled && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 border border-violet-200">
+                        Scheduled
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-cream-500 font-mono">{pipeline.name}</p>
                   <p className="text-xs text-cream-500 mt-1 line-clamp-1">{pipeline.description}</p>
@@ -150,7 +306,7 @@ export function Pipelines() {
                 <ChevronRight className="w-4 h-4 text-cream-400 flex-shrink-0 mt-1" />
               </div>
 
-              <div className="grid grid-cols-4 gap-4 text-xs">
+              <div className="grid grid-cols-5 gap-4 text-xs">
                 <div className="flex items-center gap-2">
                   <Zap className="w-3.5 h-3.5 text-cream-400" />
                   <div>
@@ -181,6 +337,13 @@ export function Pipelines() {
                     </p>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-cream-400" />
+                  <div>
+                    <p className="text-cream-500">Engine</p>
+                    <p className="text-cream-800 font-medium">{pipeline.engine}</p>
+                  </div>
+                </div>
               </div>
 
               {pipeline.tags.length > 0 && (
@@ -198,6 +361,12 @@ export function Pipelines() {
             </button>
           );
         })}
+
+        {pageData.length === 0 && (
+          <div className="text-center py-12 text-cream-400 text-sm">
+            No pipelines match the current filters
+          </div>
+        )}
       </div>
 
       {totalPages > 1 && (

@@ -13,17 +13,23 @@ const LINEAGE_CHAIN: { type: LineageNode['type']; nameTemplate: string; location
 const SOURCE_NAMES = ['SAP ERP', 'PostgreSQL', 'IoT Hub', 'Salesforce', 'Kafka Stream', 'S3 Files', 'REST API'];
 const BI_NAMES = ['Looker Dashboard', 'Power BI Report', 'Metabase Dashboard', 'Jupyter Notebook', 'dbt Docs'];
 
+const UNIQUE_CHAINS = 15;
+
 export function generateLineage(datasetIds: string[]): LineageNode[] {
   const nodes: LineageNode[] = [];
-  const trackedDatasets = datasetIds.slice(0, Math.min(10, datasetIds.length));
+  const chainNodeIds: string[][] = [];
 
-  for (const datasetId of trackedDatasets) {
+  const primaryDatasets = datasetIds.slice(0, Math.min(UNIQUE_CHAINS, datasetIds.length));
+
+  for (const datasetId of primaryDatasets) {
     let parentId: string | undefined;
     const baseDate = faker.date.recent({ days: 90 });
+    const chainIds: string[] = [];
 
     for (let step = 0; step < LINEAGE_CHAIN.length; step++) {
       const stage = LINEAGE_CHAIN[step];
       const nodeId = faker.string.uuid();
+      chainIds.push(nodeId);
 
       let name = stage.nameTemplate;
       if (stage.type === 'Source') name = faker.helpers.arrayElement(SOURCE_NAMES);
@@ -46,6 +52,20 @@ export function generateLineage(datasetIds: string[]): LineageNode[] {
       });
 
       parentId = nodeId;
+    }
+
+    chainNodeIds.push(chainIds);
+  }
+
+  const remaining = datasetIds.slice(UNIQUE_CHAINS);
+  for (const datasetId of remaining) {
+    const chainIdx = Math.floor(Math.random() * chainNodeIds.length);
+    const chainIds = chainNodeIds[chainIdx];
+    for (const nodeId of chainIds) {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (node) {
+        node.datasetIds.push(datasetId);
+      }
     }
   }
 

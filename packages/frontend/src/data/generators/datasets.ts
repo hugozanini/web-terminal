@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import type { Dataset } from '../types';
+import type { Dataset, QualityDashboard } from '../types';
 
 interface DatasetTemplate {
   name: string;
@@ -253,6 +253,47 @@ function generateSampleRows(columns: { key: string; gen: () => unknown }[]): Rec
   });
 }
 
+const QUALITY_TEMPLATES = 10;
+
+function generateQualityDashboardTemplates(): QualityDashboard[] {
+  const templates: QualityDashboard[] = [];
+
+  for (let t = 0; t < QUALITY_TEMPLATES; t++) {
+    const healthScore = faker.number.int({ min: 62, max: 99 });
+    const isHealthy = healthScore >= 85;
+    const failBase = isHealthy ? faker.number.int({ min: 0, max: 4 }) : faker.number.int({ min: 3, max: 12 });
+    const warnBase = isHealthy ? faker.number.int({ min: 0, max: 6 }) : faker.number.int({ min: 4, max: 15 });
+    const checksPerDay = faker.number.int({ min: 12, max: 40 });
+
+    const dailyChecks: QualityDashboard['dailyChecks'] = [];
+    for (let d = 89; d >= 0; d--) {
+      const date = new Date(Date.now() - d * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      const fail = Math.max(0, failBase + faker.number.int({ min: -2, max: 3 }));
+      const warn = Math.max(0, warnBase + faker.number.int({ min: -3, max: 4 }));
+      const pass = Math.max(1, checksPerDay - fail - warn + faker.number.int({ min: -2, max: 2 }));
+      dailyChecks.push({ date: dateStr, pass, warn, fail });
+    }
+
+    const totalFail = dailyChecks.reduce((s, d) => s + d.fail, 0);
+    const totalWarn = dailyChecks.reduce((s, d) => s + d.warn, 0);
+    const totalChecks = dailyChecks.reduce((s, d) => s + d.pass + d.warn + d.fail, 0);
+
+    templates.push({
+      checksFailed: totalFail,
+      checksWarned: totalWarn,
+      healthScore,
+      activeChecks: totalChecks,
+      avgAlertsPerDay: Math.round((totalFail + totalWarn) / 90),
+      dailyChecks,
+    });
+  }
+
+  return templates;
+}
+
+const qualityTemplates = generateQualityDashboardTemplates();
+
 export function generateDatasets(count: number): Dataset[] {
   const datasets: Dataset[] = [];
 
@@ -260,6 +301,8 @@ export function generateDatasets(count: number): Dataset[] {
     const template = DATASET_TEMPLATES[i % DATASET_TEMPLATES.length];
     const suffix = i >= DATASET_TEMPLATES.length ? `_v${Math.floor(i / DATASET_TEMPLATES.length) + 1}` : '';
     const schema = faker.helpers.arrayElement(SCHEMAS);
+
+    const qd = qualityTemplates[i % QUALITY_TEMPLATES];
 
     datasets.push({
       id: faker.string.uuid(),
@@ -281,7 +324,7 @@ export function generateDatasets(count: number): Dataset[] {
       sizeBytes: faker.number.int({ min: 1024, max: 500_000_000_000 }),
       owner: faker.helpers.arrayElement(OWNERS),
       tags: faker.helpers.arrayElements(TAGS, { min: 1, max: 3 }),
-      qualityScore: faker.number.float({ min: 60, max: 100, fractionDigits: 1 }),
+      qualityScore: qd.healthScore,
       criticality: faker.helpers.weightedArrayElement([
         { value: 'Critical' as const, weight: 0.1 },
         { value: 'High' as const, weight: 0.25 },
@@ -295,6 +338,7 @@ export function generateDatasets(count: number): Dataset[] {
       source: faker.helpers.arrayElement(SOURCES),
       createdAt: faker.date.past({ years: 2 }),
       sampleData: generateSampleRows(template.sampleColumns),
+      qualityDashboard: qd,
     });
   }
 

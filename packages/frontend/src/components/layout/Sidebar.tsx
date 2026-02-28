@@ -2,11 +2,11 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Home,
   Database,
-  GitBranch,
   Play,
-  ShieldCheck,
   DollarSign,
   Terminal,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useCatalogData } from '../../hooks/useCatalogData';
@@ -20,10 +20,8 @@ interface SidebarProps {
 const navItems = [
   { path: '/', label: 'Home', icon: Home },
   { path: '/datasets', label: 'Datasets', icon: Database, countKey: 'datasets' as const },
-  { path: '/lineage', label: 'Lineage', icon: GitBranch },
   { path: '/pipelines', label: 'Pipelines', icon: Play, countKey: 'pipelines' as const },
-  { path: '/quality', label: 'Quality', icon: ShieldCheck, countKey: 'qualityChecks' as const },
-  { path: '/costs', label: 'Costs', icon: DollarSign, countKey: 'costs' as const },
+  { path: '/costs', label: 'Costs', icon: DollarSign },
 ];
 
 export function Sidebar({ isTerminalOpen, onToggleTerminal }: SidebarProps) {
@@ -36,6 +34,18 @@ export function Sidebar({ isTerminalOpen, onToggleTerminal }: SidebarProps) {
     if (Array.isArray(arr)) return arr.length;
     return null;
   };
+
+  const costTrendUp = (() => {
+    const costs = data.costs;
+    if (!costs || costs.length < 2) return null;
+    const now = Date.now();
+    const cutoff15 = now - 15 * 24 * 60 * 60 * 1000;
+    const cutoff30 = cutoff15 - 15 * 24 * 60 * 60 * 1000;
+    const recent = costs.filter(c => { const t = new Date(c.date).getTime(); return t >= cutoff15 && t <= now; }).reduce((s, c) => s + c.amount, 0);
+    const prev = costs.filter(c => { const t = new Date(c.date).getTime(); return t >= cutoff30 && t < cutoff15; }).reduce((s, c) => s + c.amount, 0);
+    if (prev === 0 && recent === 0) return null;
+    return recent >= prev;
+  })();
 
   return (
     <aside className="w-56 bg-brand-950 text-cream-300 flex flex-col flex-shrink-0 h-screen sticky top-0">
@@ -69,14 +79,20 @@ export function Sidebar({ isTerminalOpen, onToggleTerminal }: SidebarProps) {
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               <span className="flex-1">{label}</span>
-              {count !== null && (
+              {path === '/costs' && costTrendUp !== null ? (
+                costTrendUp ? (
+                  <TrendingUp className="w-3.5 h-3.5 text-red-400" />
+                ) : (
+                  <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
+                )
+              ) : count !== null ? (
                 <span className={clsx(
                   'text-xs px-1.5 py-0.5 rounded-full',
                   isActive ? 'bg-brand-700 text-cream-300' : 'bg-brand-900 text-cream-500'
                 )}>
                   {count}
                 </span>
-              )}
+              ) : null}
             </Link>
           );
         })}
