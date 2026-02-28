@@ -7,6 +7,7 @@ import { Datasets } from './components/catalog/Datasets';
 import { DatasetDetail } from './components/catalog/DatasetDetail';
 import { Lineage } from './components/catalog/Lineage';
 import { Pipelines } from './components/catalog/Pipelines';
+import { PipelineDetail } from './components/catalog/PipelineDetail';
 import { Quality } from './components/catalog/Quality';
 import { Costs } from './components/catalog/Costs';
 import { SearchResults } from './components/catalog/SearchResults';
@@ -40,6 +41,7 @@ function App() {
             <Route path="/datasets/:id" element={<DatasetDetail />} />
             <Route path="/lineage" element={<Lineage />} />
             <Route path="/pipelines" element={<Pipelines />} />
+            <Route path="/pipelines/:id" element={<PipelineDetail />} />
             <Route path="/quality" element={<Quality />} />
             <Route path="/costs" element={<Costs />} />
           </Routes>
