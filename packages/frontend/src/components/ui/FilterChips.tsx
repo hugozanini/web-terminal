@@ -36,7 +36,7 @@ export function FilterChips<T extends string>({
             className={clsx(
               'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border transition-colors',
               isActive
-                ? 'bg-coffee-100 border-coffee-300 text-coffee-800'
+                ? 'bg-brand-100 border-brand-300 text-brand-900'
                 : 'bg-white border-cream-200 text-cream-600 hover:border-cream-300 hover:text-cream-800'
             )}
           >
@@ -44,7 +44,7 @@ export function FilterChips<T extends string>({
             {count !== undefined && (
               <span className={clsx(
                 'text-[10px] px-1 py-0 rounded-full',
-                isActive ? 'bg-coffee-200 text-coffee-700' : 'bg-cream-100 text-cream-500'
+                isActive ? 'bg-brand-200 text-brand-700' : 'bg-cream-100 text-cream-500'
               )}>
                 {count}
               </span>

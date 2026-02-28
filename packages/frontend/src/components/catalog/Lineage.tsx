@@ -153,7 +153,7 @@ export function Lineage() {
           className={clsx(
             'px-3 py-1.5 text-xs font-medium rounded-full border transition-colors',
             !selectedDataset
-              ? 'bg-coffee-100 border-coffee-300 text-coffee-800'
+              ? 'bg-brand-100 border-brand-300 text-brand-900'
               : 'bg-white border-cream-200 text-cream-600 hover:border-cream-300'
           )}
         >
@@ -166,7 +166,7 @@ export function Lineage() {
             className={clsx(
               'px-3 py-1.5 text-xs font-medium rounded-full border transition-colors',
               selectedDataset === d.id
-                ? 'bg-coffee-100 border-coffee-300 text-coffee-800'
+                ? 'bg-brand-100 border-brand-300 text-brand-900'
                 : 'bg-white border-cream-200 text-cream-600 hover:border-cream-300'
             )}
           >

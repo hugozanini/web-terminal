@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Coffee,
   Database,
   Server,
   Play,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 import { SearchInput } from '../ui/SearchInput';
 import { StatCard } from '../ui/StatCard';
+import { Logo } from '../ui/Logo';
 import { useCatalogData } from '../../hooks/useCatalogData';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import clsx from 'clsx';
@@ -72,7 +72,7 @@ export function Home() {
     return rows;
   }, [activeTab, datasets, dataSources, pipelineRuns, search]);
 
-  const typeIcons: Record<string, typeof Coffee> = {
+  const typeIcons: Record<string, typeof Database> = {
     Dataset: Database, Source: Server, Pipeline: Play,
   };
 
@@ -100,15 +100,12 @@ export function Home() {
 
   return (
     <div>
-      <div className="bg-gradient-to-br from-coffee-800 via-coffee-700 to-coffee-600 rounded-2xl p-8 mb-8 text-white">
+      <div className="bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 rounded-2xl p-6 mb-8 text-white">
         <div className="max-w-2xl mx-auto text-center">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Coffee className="w-8 h-8 text-coffee-200" />
-            <h1 className="text-2xl font-semibold">Happy Coffee Data Catalog</h1>
+          <div className="inline-flex items-center gap-3 mb-4" style={{ '--logo-inner': '#1a1a1a' } as React.CSSProperties}>
+            <Logo size={56} className="flex-shrink-0" />
+            <h1 className="text-2xl font-semibold leading-none">Happy Coffee Data Catalog</h1>
           </div>
-          <p className="text-coffee-200 text-sm mb-6">
-            Explore {datasets.length + dataSources.length + pipelineRuns.length} data assets across Happy Coffee's data platform
-          </p>
           <SearchInput
             value={search}
             onChange={setSearch}
@@ -138,14 +135,14 @@ export function Home() {
                     className={clsx(
                       'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors whitespace-nowrap',
                       activeTab === tab.key
-                        ? 'border-coffee-600 text-coffee-700 font-medium'
+                        ? 'border-brand-900 text-brand-900 font-medium'
                         : 'border-transparent text-cream-500 hover:text-cream-700'
                     )}
                   >
                     {tab.label}
                     <span className={clsx(
                       'text-[10px] px-1.5 py-0.5 rounded-full',
-                      activeTab === tab.key ? 'bg-coffee-100 text-coffee-700' : 'bg-cream-100 text-cream-500'
+                      activeTab === tab.key ? 'bg-brand-100 text-brand-800' : 'bg-cream-100 text-cream-500'
                     )}>
                       {tab.count}
                     </span>

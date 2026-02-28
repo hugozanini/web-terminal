@@ -142,7 +142,7 @@ export function DatasetDetail() {
     return (
       <div className="text-center py-20">
         <p className="text-cream-500">Dataset not found</p>
-        <button onClick={() => navigate('/datasets')} className="text-coffee-600 hover:underline text-sm mt-2">
+        <button onClick={() => navigate('/datasets')} className="text-brand-600 hover:underline text-sm mt-2">
           Back to Datasets
         </button>
       </div>
@@ -202,7 +202,7 @@ export function DatasetDetail() {
               className={clsx(
                 'flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors',
                 tab === t.key
-                  ? 'border-coffee-600 text-coffee-700 font-medium'
+                  ? 'border-brand-900 text-brand-900 font-medium'
                   : 'border-transparent text-cream-500 hover:text-cream-700'
               )}
             >
@@ -210,7 +210,7 @@ export function DatasetDetail() {
               {t.count !== undefined && (
                 <span className={clsx(
                   'text-[10px] px-1.5 py-0.5 rounded-full',
-                  tab === t.key ? 'bg-coffee-100 text-coffee-700' : 'bg-cream-100 text-cream-500'
+                  tab === t.key ? 'bg-brand-100 text-brand-800' : 'bg-cream-100 text-cream-500'
                 )}>
                   {t.count}
                 </span>
