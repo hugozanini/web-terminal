@@ -58,6 +58,10 @@ Browser                          Server                        OS
 | WebSocket (server) | ws | Accepts terminal connections at `/terminal` |
 | PTY | node-pty | Spawns a real shell process with full TTY support |
 | HTTP server | Express | Health check, serves as the WebSocket upgrade target |
+| Charting | Recharts | Cost trend line charts in the demo catalog |
+| Graph visualization | React Flow | Interactive lineage diagrams in the demo catalog |
+| Testing | Vitest, Testing Library, Supertest | Unit and integration tests with coverage |
+| CI | GitHub Actions | Automated checks on push and PR |
 | Monorepo | npm workspaces | `packages/frontend` and `packages/backend` |
 
 ## Getting started
@@ -72,7 +76,7 @@ Browser                          Server                        OS
 ### Install and run
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/hugozanini/web-terminal.git
 cd web-terminal
 npm install
 npm run dev
@@ -95,25 +99,30 @@ This starts:
 
 ```
 web-terminal/
++-- .github/workflows/            # CI workflow (tests.yml)
 +-- packages/
 |   +-- frontend/                  # React application
 |   |   +-- src/
-|   |       +-- components/
-|   |       |   +-- terminal/      # Terminal.tsx, useTerminal.ts
-|   |       |   +-- layout/        # Sidebar, ContentShell, PageHeader
-|   |       |   +-- catalog/       # Demo data catalog pages
-|   |       |   +-- ui/            # Reusable UI components (SearchInput, DataTable, etc.)
-|   |       +-- data/              # Types and Faker.js generators (demo)
-|   |       +-- store/             # Zustand store (demo)
-|   |       +-- hooks/             # Custom hooks (useCatalogData, useDocumentTitle)
+|   |   |   +-- components/
+|   |   |   |   +-- terminal/      # Terminal.tsx, useTerminal.ts
+|   |   |   |   +-- layout/        # Sidebar, ContentShell, PageHeader
+|   |   |   |   +-- catalog/       # Demo data catalog pages
+|   |   |   |   +-- ui/            # Reusable UI components (SearchInput, DataTable, etc.)
+|   |   |   +-- data/              # Types and Faker.js generators (demo)
+|   |   |   +-- store/             # Zustand store (demo)
+|   |   |   +-- hooks/             # Custom hooks (useCatalogData, useDocumentTitle)
+|   |   |   +-- test/              # Test setup
+|   |   +-- vitest.config.ts       # Frontend test configuration
 |   |
 |   +-- backend/                   # Express + WebSocket server
 |       +-- src/
-|           +-- index.ts           # HTTP server + WebSocket setup
-|           +-- terminal/
-|               +-- pty-manager.ts        # Spawns and manages the PTY process
-|               +-- websocket-handler.ts  # Bridges WebSocket <-> PTY
-|               +-- types.ts              # TerminalMessage, TerminalSize
+|       |   +-- index.ts           # HTTP server + WebSocket setup
+|       |   +-- terminal/
+|       |   |   +-- pty-manager.ts        # Spawns and manages the PTY process
+|       |   |   +-- websocket-handler.ts  # Bridges WebSocket <-> PTY
+|       |   |   +-- types.ts              # TerminalMessage, TerminalSize
+|       |   +-- __tests__/         # Backend integration tests
+|       +-- vitest.config.ts       # Backend test configuration
 |
 +-- package.json                   # Workspace root, postinstall script
 ```
@@ -122,7 +131,34 @@ The terminal integration lives entirely in two files on the frontend (`Terminal.
 
 ## The demo: Happy Coffee Data Catalog
 
-The included demo UI is a data catalog for a fictional Brazilian coffee exporter. It generates realistic data client-side using Faker.js (seeded for consistency) and provides pages for datasets, data sources, lineage, pipelines, quality checks, costs, and a dedicated search results view. The catalog is there to demonstrate the terminal alongside a real-looking web application -- it is not the focus of this project.
+The included demo UI is a data catalog for a fictional Brazilian coffee exporter. It generates realistic data client-side using Faker.js (seeded for consistency, anchored to the current timestamp so dates stay fresh). The catalog is there to demonstrate the terminal alongside a real-looking web application -- it is not the focus of this project.
+
+Demo pages include:
+
+- **Home** -- discovery hub with asset counts and search
+- **Datasets** -- browsable list with quality scores, freshness, and criticality; each dataset detail page has schema, sample data, lineage (React Flow), quality dashboard, cost trends (Recharts), and linked pipelines
+- **Data Sources** -- external systems feeding the catalog
+- **Pipelines** -- dashboard with success rate and filters; each pipeline detail page supports triggering a simulated run with real-time streaming logs (~40 s execution, random success/failure)
+- **Costs** -- storage and compute trends with date filtering
+- **Search** -- dedicated results page across all asset types
+
+## Testing
+
+The project includes unit and integration tests for both packages, powered by [Vitest](https://vitest.dev/).
+
+```bash
+# Run all tests
+npm test --workspace=packages/frontend
+npm test --workspace=packages/backend
+
+# Run with coverage
+npx vitest run --coverage --workspace=packages/frontend
+npx vitest run --coverage --workspace=packages/backend
+```
+
+Frontend tests use `@testing-library/react` with a `jsdom` environment. Backend tests use `supertest` for HTTP assertions and mock `node-pty` for terminal unit tests.
+
+A GitHub Actions workflow (`.github/workflows/tests.yml`) runs TypeScript checks and the full test suite on every push and pull request.
 
 ## Build for production
 
