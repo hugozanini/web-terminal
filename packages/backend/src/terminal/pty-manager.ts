@@ -16,7 +16,7 @@ export class PTYManager {
 
     // Spawn PTY with user's shell
     this.ptyProcess = pty.spawn(shell, [], {
-      name: 'xterm-color',
+      name: 'xterm-256color',
       cols: 80,
       rows: 30,
       cwd,
