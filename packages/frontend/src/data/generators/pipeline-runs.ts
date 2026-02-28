@@ -139,7 +139,7 @@ export function generatePipelineRuns(pipelines: Pipeline[]): PipelineRun[] {
   for (const pipeline of pipelines) {
     const runCount = faker.number.int({ min: 3, max: 8 });
     for (let i = 0; i < runCount; i++) {
-      const startTime = faker.date.between({ from: new Date(2026, 1, 1), to: new Date(2026, 1, 28) });
+      const startTime = faker.date.recent({ days: 30 });
       const duration = faker.number.int({ min: 5, max: 3600 });
       const endTime = new Date(startTime.getTime() + duration * 1000);
       const status = faker.helpers.weightedArrayElement([

@@ -43,7 +43,7 @@ export function generateDataSources(count: number): DataSource[] {
         { value: 'Disconnected' as const, weight: 0.08 },
       ]),
       datasetsCount: faker.number.int({ min: 1, max: 12 }),
-      lastSync: faker.date.between({ from: new Date(2026, 1, 20), to: new Date(2026, 1, 28) }),
+      lastSync: faker.date.recent({ days: 7 }),
       owner: faker.helpers.arrayElement(OWNERS),
       description: template.desc,
     });
