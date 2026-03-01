@@ -120,14 +120,20 @@ export function WebMCPIntegration() {
                         type: 'object',
                         properties: {
                             id: { type: 'string', description: 'The dataset ID (e.g. ds-1)' },
-                            tab: { type: 'string', enum: ['overview', 'data', 'quality', 'lineage', 'pipelines', 'costs'] }
+                            tab: { type: 'string', enum: ['overview', 'data', 'quality', 'lineage', 'pipelines', 'costs'] },
+                            dateRange: { type: 'string', enum: ['7', '30', '90'], description: 'Optional. For the costs tab, specifies the number of days of history to retrieve. Default is 90.' }
                         },
                         required: ['id', 'tab']
                     },
-                    execute: async (args: { id: string; tab: string }) => {
+                    execute: async (args: { id: string; tab: string; dateRange?: string }) => {
                         const d = datasets.find(x => x.id === args.id);
                         if (!d) return { content: [{ type: 'text', text: `Dataset ${args.id} not found.` }] };
-                        navigate(`/datasets/${args.id}?tab=${args.tab}`);
+
+                        const params = new URLSearchParams({ tab: args.tab });
+                        if (args.tab === 'costs') {
+                            params.set('dateRange', args.dateRange || '90');
+                        }
+                        navigate(`/datasets/${args.id}?${params.toString()}`);
 
                         let info = '';
                         if (args.tab === 'overview') {
@@ -156,15 +162,26 @@ export function WebMCPIntegration() {
                         else if (args.tab === 'quality') info = JSON.stringify(d.qualityDashboard, null, 2);
 
                         else if (args.tab === 'costs') {
-                            const datasetCosts = costs.filter((c: any) => c.entityId === d.id && c.entityType === 'Dataset');
+                            const days = parseInt(args.dateRange || '90', 10);
+                            const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+                            const datasetCosts = costs.filter((c: any) => c.entityId === d.id && c.entityType === 'Dataset' && new Date(c.date).getTime() >= cutoff);
                             datasetCosts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                            info = JSON.stringify(datasetCosts.map((c: any) => ({
-                                date: c.date,
-                                category: c.category,
-                                subcategory: c.subcategory,
-                                amount: c.amount,
-                                description: c.description
-                            })), null, 2);
+                            const summary = {
+                                storageSummary: datasetCosts.filter((c: any) => c.category === 'Storage').reduce((acc, c: any) => acc + c.amount, 0),
+                                computeSummary: datasetCosts.filter((c: any) => c.category === 'Compute').reduce((acc, c: any) => acc + c.amount, 0),
+                                totalCost: datasetCosts.reduce((acc, c: any) => acc + c.amount, 0),
+                            };
+                            info = JSON.stringify({
+                                dateRangeDays: days,
+                                summary,
+                                history: datasetCosts.map((c: any) => ({
+                                    date: c.date,
+                                    category: c.category,
+                                    subcategory: c.subcategory,
+                                    amount: c.amount,
+                                    description: c.description
+                                }))
+                            }, null, 2);
                         }
                         else if (args.tab === 'pipelines') {
                             const datasetPipelines = pipelineRuns.filter((r: any) => r.inputDatasets.includes(d.id) || r.outputDatasets.includes(d.id));
@@ -250,19 +267,25 @@ export function WebMCPIntegration() {
                 },
                 {
                     name: 'view_pipeline_details',
-                    description: 'View specific details of a pipeline by navigating directly to a tab (overview, runs, lineage). If you need to summarize logs, you must first get the runId from the "runs" tab using this tool, and then immediately call view_pipeline_run_logs.',
+                    description: 'View specific details of a pipeline by navigating directly to a tab (overview, runs, lineage, costs). If you need to summarize logs, you must first get the runId from the "runs" tab using this tool, and then immediately call view_pipeline_run_logs. Use the "costs" tab to see generated datasets and infrastructure spend.',
                     inputSchema: {
                         type: 'object',
                         properties: {
                             id: { type: 'string' },
-                            tab: { type: 'string', enum: ['overview', 'runs', 'lineage'] }
+                            tab: { type: 'string', enum: ['overview', 'runs', 'lineage', 'costs'] },
+                            dateRange: { type: 'string', enum: ['7', '30', '90'], description: 'Optional. For the costs tab, specifies the number of days of history to retrieve. Default is 90.' }
                         },
                         required: ['id', 'tab']
                     },
-                    execute: async (args: { id: string; tab: string }) => {
+                    execute: async (args: { id: string; tab: string; dateRange?: string }) => {
                         const p = pipelines.find(x => x.id === args.id);
                         if (!p) return { content: [{ type: 'text', text: `Pipeline ${args.id} not found.` }] };
-                        navigate(`/pipelines/${args.id}?tab=${args.tab}`);
+
+                        const params = new URLSearchParams({ tab: args.tab });
+                        if (args.tab === 'costs') {
+                            params.set('dateRange', args.dateRange || '90');
+                        }
+                        navigate(`/pipelines/${args.id}?${params.toString()}`);
 
                         let info = '';
                         if (args.tab === 'overview') {
@@ -293,6 +316,34 @@ export function WebMCPIntegration() {
                             })), null, 2);
                         } else if (args.tab === 'lineage') {
                             info = JSON.stringify({ inputDatasets: p.inputDatasets, outputDatasets: p.outputDatasets }, null, 2);
+                        } else if (args.tab === 'costs') {
+                            const days = parseInt(args.dateRange || '90', 10);
+                            const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+                            const pipelineCosts = costs.filter((c: any) => c.entityId === p.id && c.entityType === 'Pipeline' && new Date(c.date).getTime() >= cutoff);
+                            pipelineCosts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                            const summary = {
+                                storageSummary: pipelineCosts.filter((c: any) => c.category === 'Storage').reduce((acc, c: any) => acc + c.amount, 0),
+                                computeSummary: pipelineCosts.filter((c: any) => c.category === 'Compute').reduce((acc, c: any) => acc + c.amount, 0),
+                                totalCost: pipelineCosts.reduce((acc, c: any) => acc + c.amount, 0),
+                            };
+
+                            const outputDs = datasets.filter(d => p.outputDatasets.includes(d.id)).map(d => ({
+                                id: d.id, name: d.displayName, type: d.type
+                            }));
+
+                            info = JSON.stringify({
+                                dateRangeDays: days,
+                                summary,
+                                producedDatasets: outputDs,
+                                history: pipelineCosts.map((c: any) => ({
+                                    date: c.date,
+                                    category: c.category,
+                                    subcategory: c.subcategory,
+                                    amount: c.amount,
+                                    description: c.description
+                                }))
+                            }, null, 2);
                         }
 
                         return { content: [{ type: 'text', text: `Navigated to Pipeline ${args.id} tab ${args.tab}.\nPage Content Context:\n${info}` }] };

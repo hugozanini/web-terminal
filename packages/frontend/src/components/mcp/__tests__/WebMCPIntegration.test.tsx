@@ -27,7 +27,7 @@ describe('WebMCPIntegration', () => {
 
         (useCatalogData as any).mockReturnValue({
             datasets: [{ id: 'ds-1', name: 'mock_dataset', displayName: 'Mock Dataset', type: 'dbt', owner: 'Test', schema: { fields: [] }, sampleData: [], qualityScore: 90 }],
-            pipelines: [{ id: 'p-1', name: 'mock_pipeline', displayName: 'Mock Pipeline' }],
+            pipelines: [{ id: 'p-1', name: 'mock_pipeline', displayName: 'Mock Pipeline', inputDatasets: [], outputDatasets: ['ds-1'] }],
             pipelineRuns: [{ pipelineId: 'p-1', id: 'run-1', logs: [{ message: 'Test Log' }] }],
             costs: [{ id: 'c-1', category: 'Compute', subcategory: 'Snowflake Warehouse Credits', entityType: 'Pipeline', entityId: 'p-1', amount: 150.50, currency: 'USD', date: new Date().toISOString(), description: 'Compute cost' }],
         });
@@ -105,9 +105,18 @@ describe('WebMCPIntegration', () => {
 
         it('view_dataset_details paths correctly', async () => {
             const tool = getTool('view_dataset_details');
-            await tool.execute({ id: 'ds-1', tab: 'costs' });
+            await tool.execute({ id: 'ds-1', tab: 'costs', dateRange: '30' });
 
-            expect(mockNavigate).toHaveBeenCalledWith('/datasets/ds-1?tab=costs');
+            expect(mockNavigate).toHaveBeenCalledWith('/datasets/ds-1?tab=costs&dateRange=30');
+        });
+
+        it('view_pipeline_details paths correctly for costs', async () => {
+            const tool = getTool('view_pipeline_details');
+            const result = await tool.execute({ id: 'p-1', tab: 'costs', dateRange: '7' });
+
+            expect(mockNavigate).toHaveBeenCalledWith('/pipelines/p-1?tab=costs&dateRange=7');
+            expect(result.content[0].text).toContain('producedDatasets');
+            expect(result.content[0].text).toContain('150.5');
         });
 
         it('view_pipeline_run_logs retrieves logs', async () => {

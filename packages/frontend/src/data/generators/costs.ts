@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import type { CostEntry, Dataset, PipelineRun, DataSource } from '../types';
+import type { CostEntry, Dataset, Pipeline, DataSource } from '../types';
 
 const ENTITY_TYPES: CostEntry['entityType'][] = ['Dataset', 'Pipeline', 'Source'];
 
@@ -44,11 +44,10 @@ function makeCostEntry(
 export function generateCosts(
   count: number,
   datasets: Dataset[],
-  pipelineRuns: PipelineRun[],
+  pipelines: Pipeline[],
   dataSources: DataSource[]
 ): CostEntry[] {
   const entries: CostEntry[] = [];
-  const pipelineNames = [...new Set(pipelineRuns.map(r => r.pipelineName))];
 
   for (const ds of datasets) {
     const entryCount = faker.number.int({ min: 6, max: 10 });
@@ -58,6 +57,19 @@ export function generateCosts(
       entries.push(makeCostEntry(
         category, 'Dataset', ds.id,
         `${category} cost for dataset ${ds.displayName}`,
+        daysAgo,
+      ));
+    }
+  }
+
+  for (const p of pipelines) {
+    const entryCount = faker.number.int({ min: 4, max: 8 });
+    for (let j = 0; j < entryCount; j++) {
+      const daysAgo = Math.round((j / (entryCount - 1)) * 89);
+      const category = j % 2 === 0 ? 'Compute' as const : 'Infrastructure' as const;
+      entries.push(makeCostEntry(
+        category, 'Pipeline', p.id,
+        `${category} cost for pipeline ${p.displayName}`,
         daysAgo,
       ));
     }
@@ -83,9 +95,9 @@ export function generateCosts(
       entityId = ds.id;
       description = `${category} cost for dataset ${ds.displayName}`;
     } else if (entityType === 'Pipeline') {
-      const pipeline = faker.helpers.arrayElement(pipelineNames);
-      entityId = pipeline;
-      description = `${category} cost for pipeline ${pipeline}`;
+      const pipeline = faker.helpers.arrayElement(pipelines);
+      entityId = pipeline.id;
+      description = `${category} cost for pipeline ${pipeline.displayName}`;
     } else {
       const src = faker.helpers.arrayElement(dataSources);
       entityId = src.id;

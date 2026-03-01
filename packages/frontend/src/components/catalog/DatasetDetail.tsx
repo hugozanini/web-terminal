@@ -151,6 +151,7 @@ export function DatasetDetail() {
   const { datasets, lineage, pipelines, pipelineRuns, costs } = useCatalogData();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') as TabKey) || 'overview';
+  const dateRange = searchParams.get('dateRange') || '90';
 
   const dataset = datasets.find((d) => d.id === id);
   useDocumentTitle(dataset ? dataset.displayName : 'Dataset Detail');
@@ -175,10 +176,16 @@ export function DatasetDetail() {
     [id, pipelineRuns]
   );
 
-  const datasetCosts = useMemo(() =>
-    id ? costs.filter((c) => c.entityId === id && c.entityType === 'Dataset') : [],
-    [id, costs]
-  );
+  const datasetCosts = useMemo(() => {
+    if (!id) return [];
+    let dsCosts = costs.filter((c) => c.entityId === id && c.entityType === 'Dataset');
+    if (dateRange) {
+      const days = parseInt(dateRange, 10);
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      dsCosts = dsCosts.filter(c => new Date(c.date).getTime() >= cutoff);
+    }
+    return dsCosts;
+  }, [id, costs, dateRange]);
 
   const costChartData = useMemo(() => {
     if (datasetCosts.length === 0) return [];
@@ -329,7 +336,13 @@ export function DatasetDetail() {
           {tabs.map((t) => (
             <button
               key={t.key}
-              onClick={() => setSearchParams({ tab: t.key })}
+              onClick={() => {
+                if (t.key === 'costs') {
+                  setSearchParams({ tab: t.key, dateRange: '90' });
+                } else {
+                  setSearchParams({ tab: t.key });
+                }
+              }}
               className={clsx(
                 'flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors',
                 tab === t.key
@@ -599,43 +612,56 @@ export function DatasetDetail() {
       )}
 
       {tab === 'costs' && (
-        datasetCosts.length > 0 ? (
+        datasetCosts.length > 0 || dateRange ? (
           <div className="space-y-6">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
-                <p className="text-xs text-cream-500 mb-1">Total Cost</p>
-                <p className="text-xl font-bold text-cream-900">${costSummary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                <p className="text-[10px] text-cream-400 mt-1">Last 90 days</p>
-              </div>
-              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
-                <p className="text-xs text-cream-500 mb-1">Storage</p>
-                <p className="text-xl font-bold text-cream-900">${costSummary.storage.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  {costSummary.storageTrend >= 0 ? (
-                    <TrendingUp className="w-3 h-3 text-red-500" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3 text-emerald-500" />
-                  )}
-                  <span className={clsx('text-[10px] font-medium', costSummary.storageTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
-                    {Math.abs(costSummary.storageTrend).toFixed(0)}%
-                  </span>
-                </div>
-              </div>
-              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
-                <p className="text-xs text-cream-500 mb-1">Compute</p>
-                <p className="text-xl font-bold text-cream-900">${costSummary.compute.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  {costSummary.computeTrend >= 0 ? (
-                    <TrendingUp className="w-3 h-3 text-red-500" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3 text-emerald-500" />
-                  )}
-                  <span className={clsx('text-[10px] font-medium', costSummary.computeTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
-                    {Math.abs(costSummary.computeTrend).toFixed(0)}%
-                  </span>
-                </div>
-              </div>
+            <div className="flex justify-end mb-4">
+              <select
+                value={dateRange}
+                onChange={(e) => setSearchParams({ tab: 'costs', dateRange: e.target.value })}
+                className="text-sm border border-cream-200 rounded-lg px-3 py-2 bg-white text-cream-700 focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors"
+              >
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
             </div>
+            {datasetCosts.length > 0 ? (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <p className="text-xs text-cream-500 mb-1">Total Cost</p>
+                  <p className="text-xl font-bold text-cream-900">${costSummary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-[10px] text-cream-400 mt-1">Last {dateRange} days</p>
+                </div>
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <p className="text-xs text-cream-500 mb-1">Storage</p>
+                  <p className="text-xl font-bold text-cream-900">${costSummary.storage.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {costSummary.storageTrend >= 0 ? (
+                      <TrendingUp className="w-3 h-3 text-red-500" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3 text-emerald-500" />
+                    )}
+                    <span className={clsx('text-[10px] font-medium', costSummary.storageTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
+                      {Math.abs(costSummary.storageTrend).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <p className="text-xs text-cream-500 mb-1">Compute</p>
+                  <p className="text-xl font-bold text-cream-900">${costSummary.compute.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {costSummary.computeTrend >= 0 ? (
+                      <TrendingUp className="w-3 h-3 text-red-500" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3 text-emerald-500" />
+                    )}
+                    <span className={clsx('text-[10px] font-medium', costSummary.computeTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
+                      {Math.abs(costSummary.computeTrend).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             {costChartData.length > 1 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -675,9 +701,9 @@ export function DatasetDetail() {
             <DataTable columns={costTableColumns} data={datasetCosts} pageSize={10} keyExtractor={(r) => r.id} />
           </div>
         ) : (
-          <div className="text-center py-12 text-cream-400 text-sm">
+          <div className="text-center py-12 text-cream-400 text-sm" data-testid="empty-costs">
             <DollarSign className="w-8 h-8 mx-auto mb-2 text-cream-300" />
-            No costs recorded for this dataset
+            No costs recorded for this dataset in the last {dateRange} days
           </div>
         )
       )}
