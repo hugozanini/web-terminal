@@ -508,8 +508,8 @@ export function DatasetDetail() {
                     tick={{ fontSize: 9, fill: '#a3a3a3' }}
                     tickFormatter={(v: string) => {
                       const d = new Date(v);
-                      if (d.getDate() === 1 || d.getDate() === 15) {
-                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      if (d.getUTCDate() === 1 || d.getUTCDate() === 15) {
+                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
                       }
                       return '';
                     }}
@@ -518,7 +518,7 @@ export function DatasetDetail() {
                   <YAxis tick={{ fontSize: 9, fill: '#a3a3a3' }} />
                   <Tooltip
                     contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e5e5' }}
-                    labelFormatter={(label) => new Date(String(label)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    labelFormatter={(label) => new Date(String(label)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })}
                   />
                   <Bar dataKey="pass" stackId="a" fill="#34d399" radius={[0, 0, 0, 0]} name="Pass" />
                   <Bar dataKey="warn" stackId="a" fill="#fbbf24" radius={[0, 0, 0, 0]} name="Warn" />
