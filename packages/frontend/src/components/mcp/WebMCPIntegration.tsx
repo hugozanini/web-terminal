@@ -120,7 +120,6 @@ export function WebMCPIntegration() {
 
                         let info = '';
                         if (args.tab === 'overview') {
-                            const inferredSchema = d.sampleData.length > 0 ? Object.keys(d.sampleData[0]) : [];
                             info = JSON.stringify({
                                 metadata: {
                                     database: d.schema.database,
@@ -139,7 +138,7 @@ export function WebMCPIntegration() {
                                     rowsCount: d.rows,
                                     sizeBytes: d.sizeBytes
                                 },
-                                inferredColumns: inferredSchema
+                                schema: d.fields
                             }, null, 2);
                         }
                         else if (args.tab === 'data') info = JSON.stringify(d.sampleData, null, 2);
