@@ -32,8 +32,7 @@ describe('WebMCPIntegration', () => {
         });
 
         modelContextMock = {
-            provideContext: vi.fn(),
-            registerTool: vi.fn(),
+            provideContext: vi.fn()
         };
         (global.navigator as any).modelContext = modelContextMock;
     });
@@ -64,8 +63,9 @@ describe('WebMCPIntegration', () => {
             </MemoryRouter>
         );
 
-        expect(modelContextMock.provideContext).toHaveBeenCalledTimes(9);
-        expect(modelContextMock.registerTool).toHaveBeenCalledTimes(9);
+        expect(modelContextMock.provideContext).toHaveBeenCalledTimes(1);
+        const tools = modelContextMock.provideContext.mock.calls[0][0].tools;
+        expect(tools).toHaveLength(9);
     });
 
     describe('Tool Execution', () => {
@@ -76,8 +76,8 @@ describe('WebMCPIntegration', () => {
                     <WebMCPIntegration />
                 </MemoryRouter>
             );
-            const callArgs = modelContextMock.registerTool.mock.calls.find((call: any) => call[0].name === name);
-            return callArgs ? callArgs[0] : null;
+            const tools = modelContextMock.provideContext.mock.calls[0][0].tools;
+            return tools.find((t: any) => t.name === name);
         };
 
         it('view_home_dashboard navigates correctly', async () => {
