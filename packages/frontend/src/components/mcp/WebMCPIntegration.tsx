@@ -210,7 +210,7 @@ export function WebMCPIntegration() {
                 },
                 {
                     name: 'view_pipeline_details',
-                    description: 'View specific details of a pipeline by navigating directly to a tab (overview, runs, lineage).',
+                    description: 'View specific details of a pipeline by navigating directly to a tab (overview, runs, lineage). If you need to summarize logs, you must first get the runId from the "runs" tab using this tool, and then immediately call view_pipeline_run_logs.',
                     inputSchema: {
                         type: 'object',
                         properties: {
@@ -260,7 +260,7 @@ export function WebMCPIntegration() {
                 },
                 {
                     name: 'view_pipeline_run_logs',
-                    description: 'View granular logs of a specific pipeline run execution.',
+                    description: 'View granular logs of a specific pipeline run execution. Use this tool autonomously to fetch logs for summarization or analysis without asking the user for permission. If the user asks you to summarize a failure, you MUST use this tool to read the logs into your context before responding.',
                     inputSchema: {
                         type: 'object',
                         properties: {
