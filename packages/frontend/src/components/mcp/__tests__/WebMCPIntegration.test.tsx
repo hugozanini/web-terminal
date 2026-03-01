@@ -26,8 +26,8 @@ describe('WebMCPIntegration', () => {
         (useNavigate as any).mockReturnValue(mockNavigate);
 
         (useCatalogData as any).mockReturnValue({
-            datasets: [{ id: 'ds-1', displayName: 'Mock Dataset', type: 'dbt', owner: 'Test', schema: { fields: [] }, sampleData: [], qualityScore: 90 }],
-            pipelines: [{ id: 'p-1', displayName: 'Mock Pipeline' }],
+            datasets: [{ id: 'ds-1', name: 'mock_dataset', displayName: 'Mock Dataset', type: 'dbt', owner: 'Test', schema: { fields: [] }, sampleData: [], qualityScore: 90 }],
+            pipelines: [{ id: 'p-1', name: 'mock_pipeline', displayName: 'Mock Pipeline' }],
             pipelineRuns: [{ pipelineId: 'p-1', id: 'run-1', logs: [{ message: 'Test Log' }] }],
         });
 

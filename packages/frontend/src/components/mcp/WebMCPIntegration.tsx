@@ -50,8 +50,18 @@ export function WebMCPIntegration() {
                     execute: async (args: { query: string; type?: string }) => {
                         const tab = args.type || 'all';
                         navigate(`/search?q=${encodeURIComponent(args.query)}&tab=${tab}`);
+
+                        const queryLower = args.query.toLowerCase();
+                        const matchingDatasets = datasets
+                            .filter(d => d.displayName.toLowerCase().includes(queryLower) || d.name.toLowerCase().includes(queryLower))
+                            .map(d => ({ id: d.id, name: d.displayName, type: 'dataset' }));
+
+                        const matchingPipelines = pipelines
+                            .filter(p => p.displayName.toLowerCase().includes(queryLower) || p.name.toLowerCase().includes(queryLower))
+                            .map(p => ({ id: p.id, name: p.displayName, type: 'pipeline' }));
+
                         return {
-                            content: [{ type: 'text', text: `Searching for "${args.query}" with tab=${tab}.` }]
+                            content: [{ type: 'text', text: `Searching for "${args.query}" with tab=${tab}.\n\nResults:\nDatasets: ${JSON.stringify(matchingDatasets)}\nPipelines: ${JSON.stringify(matchingPipelines)}` }]
                         };
                     }
                 },
@@ -70,16 +80,25 @@ export function WebMCPIntegration() {
                     },
                     execute: async (args: any) => {
                         const params = new URLSearchParams();
-                        if (args.query) params.set('q', args.query);
-                        if (args.types) args.types.forEach((t: string) => params.append('type', t));
+                        let filtered = datasets;
+
+                        if (args.query) {
+                            params.set('q', args.query);
+                            const q = args.query.toLowerCase();
+                            filtered = filtered.filter(d => d.displayName.toLowerCase().includes(q) || d.name.toLowerCase().includes(q));
+                        }
+                        if (args.types && args.types.length > 0) {
+                            args.types.forEach((t: string) => params.append('type', t));
+                            filtered = filtered.filter(d => args.types.includes(d.type));
+                        }
                         if (args.tags) args.tags.forEach((t: string) => params.append('tag', t));
                         if (args.sortKey) params.set('sort', args.sortKey);
                         if (args.page) params.set('page', String(args.page));
                         navigate(`/datasets?${params.toString()}`);
 
-                        const summary = datasets.map(d => ({ id: d.id, name: d.displayName, type: d.type, owner: d.owner }));
+                        const summary = filtered.map(d => ({ id: d.id, name: d.displayName, type: d.type, owner: d.owner }));
                         return {
-                            content: [{ type: 'text', text: `Navigated to datasets with filters.\nAvailable Datasets excerpt (id, name): ${JSON.stringify(summary.slice(0, 5))}` }]
+                            content: [{ type: 'text', text: `Navigated to datasets with filters.\nFound ${summary.length} datasets. Results (up to 5): ${JSON.stringify(summary.slice(0, 5))}` }]
                         };
                     }
                 },
@@ -124,15 +143,32 @@ export function WebMCPIntegration() {
                     },
                     execute: async (args: any) => {
                         const params = new URLSearchParams();
-                        if (args.query) params.set('q', args.query);
-                        if (args.types) args.types.forEach((t: string) => params.append('type', t));
-                        if (args.statuses) args.statuses.forEach((t: string) => params.append('status', t));
-                        if (args.engines) args.engines.forEach((t: string) => params.append('engine', t));
+                        let filtered = pipelines;
+
+                        if (args.query) {
+                            params.set('q', args.query);
+                            const q = args.query.toLowerCase();
+                            filtered = filtered.filter(p => p.displayName.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
+                        }
+                        if (args.types && args.types.length > 0) {
+                            args.types.forEach((t: string) => params.append('type', t));
+                            filtered = filtered.filter(p => args.types.includes(p.type));
+                        }
+                        if (args.statuses && args.statuses.length > 0) {
+                            args.statuses.forEach((t: string) => params.append('status', t));
+                            filtered = filtered.filter(p => args.statuses.includes(p.lastRunStatus));
+                        }
+                        if (args.engines && args.engines.length > 0) {
+                            args.engines.forEach((t: string) => params.append('engine', t));
+                            filtered = filtered.filter(p => args.engines.includes(p.engine));
+                        }
                         if (args.scheduleFilter) args.scheduleFilter.forEach((t: string) => params.append('schedule', t));
                         if (args.sortKey) params.set('sort', args.sortKey);
                         if (args.page) params.set('page', String(args.page));
                         navigate(`/pipelines?${params.toString()}`);
-                        return { content: [{ type: 'text', text: 'Navigated to Pipelines list with filtered view.' }] };
+
+                        const summary = filtered.map(p => ({ id: p.id, name: p.displayName, type: p.type, status: p.lastRunStatus, engine: p.engine }));
+                        return { content: [{ type: 'text', text: `Navigated to Pipelines list with filtered view.\nFound ${summary.length} pipelines. Results (up to 5): ${JSON.stringify(summary.slice(0, 5))}` }] };
                     }
                 },
                 {
