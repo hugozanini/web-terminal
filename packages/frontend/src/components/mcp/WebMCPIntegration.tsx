@@ -107,7 +107,7 @@ export function WebMCPIntegration() {
                         const summary = filtered.map(d => ({ id: d.id, name: d.displayName, type: d.type, owner: d.owner }));
                         let text = `Navigated to datasets with filters.\nFound ${summary.length} datasets. Results (up to 5): ${JSON.stringify(summary.slice(0, 5))}`;
                         if (summary.length === 0) {
-                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your query or filters based on the context of the app.`;
+                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your query. If you are looking for a pipeline instead, try using the filter_pipelines or search_global_catalog tools.`;
                         }
 
                         return { content: [{ type: 'text', text }] };
@@ -242,7 +242,7 @@ export function WebMCPIntegration() {
                         const summary = filtered.map(p => ({ id: p.id, name: p.displayName, type: p.type, status: p.lastRunStatus, engine: p.engine }));
                         let text = `Navigated to Pipelines list with filtered view.\nFound ${summary.length} pipelines. Results (up to 5): ${JSON.stringify(summary.slice(0, 5))}`;
                         if (summary.length === 0) {
-                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your query or filters based on the context of the app.`;
+                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your query. If you are searching for the execution history of a dataset, try searching for the dataset using filter_datasets or search_global_catalog instead, and then use view_dataset_details.`;
                         }
 
                         return { content: [{ type: 'text', text }] };
