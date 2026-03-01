@@ -42,7 +42,7 @@ export function WebMCPIntegration() {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            query: { type: 'string', description: 'The core search term. Example: If user asks for "Farm Origins dataset", the query must be strictly "Farm Origins".' },
+                            query: { type: 'string', description: 'The core search term. Use partial string matching (e.g. "sales" instead of "sales_data_ingestion") if exact searches fail. Example: If user asks for "Farm Origins dataset", the query must be strictly "Farm Origins".' },
                             type: { type: 'string', enum: ['all', 'datasets', 'sources', 'pipelines'], description: 'Filter by asset type.' }
                         },
                         required: ['query']
@@ -75,7 +75,7 @@ export function WebMCPIntegration() {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            query: { type: 'string', description: 'The search term for the dataset name. Strip out extraneous words like "dataset" or "table". Example for "revenue dataset": "revenue".' },
+                            query: { type: 'string', description: 'The search term for the dataset name. Strip out extraneous words. Use multiple partial chunks if exactly matching fails. Example for "sales_data_table": "sales".' },
                             types: {
                                 type: 'array',
                                 items: { type: 'string', enum: ['Table', 'View', 'Materialized View', 'External Table'] },
@@ -192,7 +192,7 @@ export function WebMCPIntegration() {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            query: { type: 'string', description: 'The search term for the pipeline name. Strip out extraneous words like "pipeline" or "job". Example: "ETL pipeline" -> "ETL".' },
+                            query: { type: 'string', description: 'The search term for the pipeline name. Strip out extraneous words. Try replacing underscores with spaces or using partial chunks if exactly matching fails. Example: "sales_data_ingestion" -> "sales" or "ingest".' },
                             types: {
                                 type: 'array',
                                 items: { type: 'string', enum: ['Ingestion', 'Transformation', 'Quality Check', 'Export', 'Aggregation'] },
