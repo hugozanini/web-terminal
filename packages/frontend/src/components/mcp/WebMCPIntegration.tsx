@@ -72,7 +72,11 @@ export function WebMCPIntegration() {
                         type: 'object',
                         properties: {
                             query: { type: 'string', description: 'The search term for the dataset name. Strip out extraneous words like "dataset" or "table". Example for "revenue dataset": "revenue".' },
-                            types: { type: 'array', items: { type: 'string' } },
+                            types: {
+                                type: 'array',
+                                items: { type: 'string', enum: ['Table', 'View', 'Materialized View', 'External Table'] },
+                                description: 'Filter by dataset types.'
+                            },
                             tags: { type: 'array', items: { type: 'string' } },
                             sortKey: { type: 'string', enum: ['quality', 'updated', 'name', 'size'] },
                             page: { type: 'number' }
@@ -154,9 +158,21 @@ export function WebMCPIntegration() {
                         type: 'object',
                         properties: {
                             query: { type: 'string', description: 'The search term for the pipeline name. Strip out extraneous words like "pipeline" or "job". Example: "ETL pipeline" -> "ETL".' },
-                            types: { type: 'array', items: { type: 'string' } },
-                            statuses: { type: 'array', items: { type: 'string' } },
-                            engines: { type: 'array', items: { type: 'string' } },
+                            types: {
+                                type: 'array',
+                                items: { type: 'string', enum: ['Ingestion', 'Transformation', 'Quality Check', 'Export', 'Aggregation'] },
+                                description: 'Filter by pipeline type. Use this when the user asks for a specific category of pipeline (e.g., Ingestion pipeline).'
+                            },
+                            statuses: {
+                                type: 'array',
+                                items: { type: 'string', enum: ['Success', 'Failed', 'Running', 'Cancelled', 'Never'] },
+                                description: 'Filter by the last run status.'
+                            },
+                            engines: {
+                                type: 'array',
+                                items: { type: 'string', enum: ['Fivetran', 'Kafka Connect', 'Airflow', 'dbt', 'Spark', 'Great Expectations'] },
+                                description: 'Filter by the execution engine.'
+                            },
                             scheduleFilter: { type: 'array', items: { type: 'string' } },
                             sortKey: { type: 'string', enum: ['name', 'lastRun', 'runs', 'duration'] },
                             page: { type: 'number' }
