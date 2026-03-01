@@ -119,11 +119,33 @@ export function WebMCPIntegration() {
                         navigate(`/datasets/${args.id}?tab=${args.tab}`);
 
                         let info = '';
-                        if (args.tab === 'overview') info = JSON.stringify(d.schema, null, 2);
+                        if (args.tab === 'overview') {
+                            const inferredSchema = d.sampleData.length > 0 ? Object.keys(d.sampleData[0]) : [];
+                            info = JSON.stringify({
+                                metadata: {
+                                    database: d.schema.database,
+                                    schema: d.schema.schema,
+                                    name: d.name,
+                                    description: d.description,
+                                    type: d.type,
+                                    owner: d.owner,
+                                    criticality: d.criticality,
+                                    freshness: d.freshness,
+                                    source: d.source,
+                                    tags: d.tags
+                                },
+                                metrics: {
+                                    columnsCount: d.columns,
+                                    rowsCount: d.rows,
+                                    sizeBytes: d.sizeBytes
+                                },
+                                inferredColumns: inferredSchema
+                            }, null, 2);
+                        }
                         else if (args.tab === 'data') info = JSON.stringify(d.sampleData, null, 2);
-                        else if (args.tab === 'quality') info = JSON.stringify({ score: d.qualityScore }, null, 2);
+                        else if (args.tab === 'quality') info = JSON.stringify(d.qualityDashboard, null, 2);
 
-                        return { content: [{ type: 'text', text: `Navigated to Dataset ${args.id} tab ${args.tab}.\n${info}` }] };
+                        return { content: [{ type: 'text', text: `Navigated to Dataset ${args.id} tab ${args.tab}.\nPage Content Context:\n${info}` }] };
                     }
                 },
                 {
@@ -184,8 +206,26 @@ export function WebMCPIntegration() {
                     },
                     execute: async (args: { id: string; tab: string }) => {
                         const p = pipelines.find(x => x.id === args.id);
+                        if (!p) return { content: [{ type: 'text', text: `Pipeline ${args.id} not found.` }] };
                         navigate(`/pipelines/${args.id}?tab=${args.tab}`);
-                        return { content: [{ type: 'text', text: `Navigated to Pipeline ${args.id} tab ${args.tab}. Name: ${p?.displayName}` }] };
+
+                        let info = '';
+                        if (args.tab === 'overview') {
+                            info = JSON.stringify({
+                                name: p.name,
+                                displayName: p.displayName,
+                                description: p.description,
+                                type: p.type,
+                                owner: p.owner,
+                                schedule: p.schedule,
+                                clusterDetails: { engine: p.engine, cluster: p.cluster },
+                                relationships: { inputs: p.inputDatasets, outputs: p.outputDatasets },
+                                performance: { lastRunStatus: p.lastRunStatus, avgDuration: p.avgDuration, totalRuns: p.totalRuns },
+                                tags: p.tags
+                            }, null, 2);
+                        }
+
+                        return { content: [{ type: 'text', text: `Navigated to Pipeline ${args.id} tab ${args.tab}.\nPage Content Context:\n${info}` }] };
                     }
                 },
                 {
