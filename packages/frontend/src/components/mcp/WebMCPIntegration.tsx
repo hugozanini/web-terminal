@@ -38,11 +38,11 @@ export function WebMCPIntegration() {
                 },
                 {
                     name: 'search_global_catalog',
-                    description: 'Search across all datasets, pipelines, and sources in the catalog.',
+                    description: 'Search across all datasets, pipelines, and sources in the catalog. Use this tool for broad discovery. IMPORTANT: Extract only the core entity name for the query. Do NOT include words like "dataset", "pipeline", or "table" in the query string.',
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            query: { type: 'string', description: 'The search term (e.g., "revenue").' },
+                            query: { type: 'string', description: 'The core search term. Example: If user asks for "Farm Origins dataset", the query must be strictly "Farm Origins".' },
                             type: { type: 'string', enum: ['all', 'datasets', 'sources', 'pipelines'], description: 'Filter by asset type.' }
                         },
                         required: ['query']
@@ -61,7 +61,7 @@ export function WebMCPIntegration() {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            query: { type: 'string' },
+                            query: { type: 'string', description: 'The search term for the dataset name. Strip out extraneous words like "dataset" or "table". Example for "revenue dataset": "revenue".' },
                             types: { type: 'array', items: { type: 'string' } },
                             tags: { type: 'array', items: { type: 'string' } },
                             sortKey: { type: 'string', enum: ['quality', 'updated', 'name', 'size'] },
@@ -113,7 +113,7 @@ export function WebMCPIntegration() {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            query: { type: 'string' },
+                            query: { type: 'string', description: 'The search term for the pipeline name. Strip out extraneous words like "pipeline" or "job". Example: "ETL pipeline" -> "ETL".' },
                             types: { type: 'array', items: { type: 'string' } },
                             statuses: { type: 'array', items: { type: 'string' } },
                             engines: { type: 'array', items: { type: 'string' } },
@@ -194,7 +194,7 @@ export function WebMCPIntegration() {
                             dateRange: { type: 'string', enum: ['7', '15', '30', '60', '90'] },
                             category: { type: 'string' },
                             entityType: { type: 'string' },
-                            search: { type: 'string' }
+                            search: { type: 'string', description: 'Search term for specific infrastructure components. Do not include extraneous words.' }
                         }
                     },
                     execute: async (args: any) => {
