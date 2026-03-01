@@ -238,6 +238,21 @@ export function WebMCPIntegration() {
                                 performance: { lastRunStatus: p.lastRunStatus, avgDuration: p.avgDuration, totalRuns: p.totalRuns },
                                 tags: p.tags
                             }, null, 2);
+                        } else if (args.tab === 'runs') {
+                            const runsList = pipelineRuns
+                                .filter(r => r.pipelineId === args.id)
+                                .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+                            info = JSON.stringify(runsList.map(r => ({
+                                id: r.id,
+                                runNumber: r.runNumber,
+                                status: r.status,
+                                startTime: r.startTime,
+                                duration: r.duration,
+                                recordsProcessed: r.recordsProcessed,
+                                recordsFailed: r.recordsFailed
+                            })), null, 2);
+                        } else if (args.tab === 'lineage') {
+                            info = JSON.stringify({ inputDatasets: p.inputDatasets, outputDatasets: p.outputDatasets }, null, 2);
                         }
 
                         return { content: [{ type: 'text', text: `Navigated to Pipeline ${args.id} tab ${args.tab}.\nPage Content Context:\n${info}` }] };
