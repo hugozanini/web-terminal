@@ -29,6 +29,7 @@ describe('WebMCPIntegration', () => {
             datasets: [{ id: 'ds-1', name: 'mock_dataset', displayName: 'Mock Dataset', type: 'dbt', owner: 'Test', schema: { fields: [] }, sampleData: [], qualityScore: 90 }],
             pipelines: [{ id: 'p-1', name: 'mock_pipeline', displayName: 'Mock Pipeline' }],
             pipelineRuns: [{ pipelineId: 'p-1', id: 'run-1', logs: [{ message: 'Test Log' }] }],
+            costs: [{ id: 'c-1', category: 'Compute', subcategory: 'Snowflake Warehouse Credits', entityType: 'Pipeline', entityId: 'p-1', amount: 150.50, currency: 'USD', date: new Date().toISOString(), description: 'Compute cost' }],
         });
 
         modelContextMock = {
@@ -117,11 +118,13 @@ describe('WebMCPIntegration', () => {
             expect(result.content[0].text).toContain('Test Log');
         });
 
-        it('analyze_infrastructure_costs navigates correctly', async () => {
+        it('analyze_infrastructure_costs navigates and computes aggregation correctly', async () => {
             const tool = getTool('analyze_infrastructure_costs');
-            await tool.execute({ dateRange: '30', search: 'aws' });
+            const result = await tool.execute({ dateRange: '30', search: 'compute' });
 
-            expect(mockNavigate).toHaveBeenCalledWith('/costs?range=30&q=aws');
+            expect(mockNavigate).toHaveBeenCalledWith('/costs?range=30&q=compute');
+            expect(result.content[0].text).toContain('150.50');
+            expect(result.content[0].text).toContain('Snowflake');
         });
     });
 });

@@ -4,7 +4,7 @@ import { useCatalogData } from '../../hooks/useCatalogData';
 
 export function WebMCPIntegration() {
     const navigate = useNavigate();
-    const { datasets, pipelines, pipelineRuns } = useCatalogData();
+    const { datasets, pipelines, pipelineRuns, costs } = useCatalogData();
 
     useEffect(() => {
         const modelContext = (navigator as any).modelContext;
@@ -293,7 +293,7 @@ export function WebMCPIntegration() {
                 },
                 {
                     name: 'analyze_infrastructure_costs',
-                    description: 'View the data platform infrastructure costs with advanced date/category slicing.',
+                    description: 'View the data platform infrastructure costs with advanced date/category slicing. Use this tool autonomously to fetch costs and summarize them for the user without asking for permission.',
                     inputSchema: {
                         type: 'object',
                         properties: {
@@ -305,12 +305,54 @@ export function WebMCPIntegration() {
                     },
                     execute: async (args: any) => {
                         const params = new URLSearchParams();
-                        if (args.dateRange) params.set('range', args.dateRange);
-                        if (args.category) params.set('category', args.category);
-                        if (args.entityType) params.set('entityType', args.entityType);
-                        if (args.search) params.set('q', args.search);
+                        let filteredCosts = costs;
+
+                        if (args.dateRange) {
+                            params.set('range', args.dateRange);
+                            const cutoffDate = new Date();
+                            cutoffDate.setDate(cutoffDate.getDate() - parseInt(args.dateRange));
+                            filteredCosts = filteredCosts.filter((c: any) => new Date(c.date) >= cutoffDate);
+                        }
+                        if (args.category) {
+                            params.set('category', args.category);
+                            filteredCosts = filteredCosts.filter((c: any) => c.category.toLowerCase() === args.category.toLowerCase());
+                        }
+                        if (args.entityType) {
+                            params.set('entityType', args.entityType);
+                            filteredCosts = filteredCosts.filter((c: any) => c.entityType.toLowerCase() === args.entityType.toLowerCase());
+                        }
+                        if (args.search) {
+                            params.set('q', args.search);
+                            const q = args.search.toLowerCase();
+                            filteredCosts = filteredCosts.filter((c: any) =>
+                                c.description.toLowerCase().includes(q) ||
+                                c.subcategory.toLowerCase().includes(q) ||
+                                c.category.toLowerCase().includes(q)
+                            );
+                        }
                         navigate(`/costs?${params.toString()}`);
-                        return { content: [{ type: 'text', text: `Filtered costs with params: ${params.toString()}` }] };
+
+                        const aggregated = filteredCosts.reduce((acc: Record<string, number>, curr: any) => {
+                            acc[curr.subcategory] = (acc[curr.subcategory] || 0) + curr.amount;
+                            return acc;
+                        }, {});
+
+                        const totalCost = filteredCosts.reduce((sum: number, curr: any) => sum + curr.amount, 0);
+
+                        const summary = {
+                            totalCost: totalCost.toFixed(2),
+                            currency: 'USD',
+                            breakdownBySubcategory: Object.entries(aggregated)
+                                .map(([subcategory, amount]: [string, any]) => ({ subcategory, amount: amount.toFixed(2) }))
+                                .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
+                        };
+
+                        return {
+                            content: [{
+                                type: 'text',
+                                text: `Filtered costs with params: ${params.toString()}.\n\nCost Data Context:\n${JSON.stringify(summary, null, 2)}`
+                            }]
+                        };
                     }
                 }
             ]
@@ -319,7 +361,7 @@ export function WebMCPIntegration() {
         return () => {
             // Unmount logic if necessary
         };
-    }, [navigate, datasets, pipelines, pipelineRuns]);
+    }, [navigate, datasets, pipelines, pipelineRuns, costs]);
 
     return null;
 }
