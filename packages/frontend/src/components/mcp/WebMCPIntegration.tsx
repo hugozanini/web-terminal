@@ -63,7 +63,7 @@ export function WebMCPIntegration() {
                         const isEmpty = matchingDatasets.length === 0 && matchingPipelines.length === 0;
                         let text = `Searching for "${args.query}" with tab=${tab}.\n\nResults:\nDatasets: ${JSON.stringify(matchingDatasets)}\nPipelines: ${JSON.stringify(matchingPipelines)}`;
                         if (isEmpty) {
-                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your query based on the context of the app.`;
+                            text += `\n\nNo records found. You MUST autonomously retry this tool up to 2 times with semantic variations of your query based on the context of the app.`;
                         }
 
                         return { content: [{ type: 'text', text }] };
@@ -107,7 +107,7 @@ export function WebMCPIntegration() {
                         const summary = filtered.map(d => ({ id: d.id, name: d.displayName, type: d.type, owner: d.owner }));
                         let text = `Navigated to datasets with filters.\nFound ${summary.length} datasets. Results (up to 5): ${JSON.stringify(summary.slice(0, 5))}`;
                         if (summary.length === 0) {
-                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your query. If you are looking for a pipeline instead, try using the filter_pipelines or search_global_catalog tools.`;
+                            text += `\n\nNo records found. You MUST autonomously retry this tool up to 2 times with semantic variations of your query. If you are still not finding results, you MUST autonomously search for a pipeline instead using the filter_pipelines or search_global_catalog tools before answering the user.`;
                         }
 
                         return { content: [{ type: 'text', text }] };
@@ -242,7 +242,7 @@ export function WebMCPIntegration() {
                         const summary = filtered.map(p => ({ id: p.id, name: p.displayName, type: p.type, status: p.lastRunStatus, engine: p.engine }));
                         let text = `Navigated to Pipelines list with filtered view.\nFound ${summary.length} pipelines. Results (up to 5): ${JSON.stringify(summary.slice(0, 5))}`;
                         if (summary.length === 0) {
-                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your query. If you are searching for the execution history of a dataset, try searching for the dataset using filter_datasets or search_global_catalog instead, and then use view_dataset_details.`;
+                            text += `\n\nNo records found. You MUST autonomously retry this tool up to 2 times with semantic variations of your query. If you are searching for the execution history of a dataset, you MUST autonomously search for the dataset using filter_datasets or search_global_catalog instead, and then use view_dataset_details before answering the user.`;
                         }
 
                         return { content: [{ type: 'text', text }] };
@@ -392,7 +392,7 @@ export function WebMCPIntegration() {
 
                         let text = `Filtered costs with params: ${params.toString()}.\n\nCost Data Context:\n${JSON.stringify(summary, null, 2)}`;
                         if (filteredCosts.length === 0) {
-                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your search query or filters based on the context of the app. Valid categories are: Storage, Compute, Query, Transfer, Licensing, Infrastructure.`;
+                            text += `\n\nNo records found. You MUST autonomously retry this tool up to 2 times with semantic variations of your search query or filters based on the context of the app. Valid categories are: Storage, Compute, Query, Transfer, Licensing, Infrastructure.`;
                         }
 
                         return { content: [{ type: 'text', text }] };
