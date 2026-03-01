@@ -93,13 +93,13 @@ export function generatePipelines(datasetIds: string[]): Pipeline[] {
   return PIPELINE_DEFS.map((def) => {
     const id = faker.string.uuid();
     const hasCron = def.cron !== null;
-    const totalRuns = faker.number.int({ min: 15, max: 120 });
     const lastRunStatus: Pipeline['lastRunStatus'] = faker.helpers.weightedArrayElement([
       { value: 'Success' as const, weight: 0.75 },
       { value: 'Failed' as const, weight: 0.15 },
       { value: 'Running' as const, weight: 0.05 },
       { value: 'Cancelled' as const, weight: 0.05 },
     ]);
+    const totalRuns = faker.number.int({ min: 15, max: 120 });
 
     return {
       id,
@@ -138,11 +138,21 @@ export function generatePipelineRuns(pipelines: Pipeline[]): PipelineRun[] {
 
   for (const pipeline of pipelines) {
     const runCount = faker.number.int({ min: 3, max: 8 });
+    let currentRefTime = pipeline.lastRunTime || new Date();
+
     for (let i = 0; i < runCount; i++) {
-      const startTime = faker.date.recent({ days: 30 });
+      const startTime = new Date(currentRefTime.getTime());
+
+      // The next historical run is randomly 1 to 5 days older than the current one
+      const daysBack = faker.number.int({ min: 1, max: 5 });
+      currentRefTime = new Date(currentRefTime.getTime() - daysBack * 24 * 60 * 60 * 1000);
+
       const duration = faker.number.int({ min: 5, max: 3600 });
       const endTime = new Date(startTime.getTime() + duration * 1000);
-      const status = faker.helpers.weightedArrayElement([
+
+      // The first run in the sequence (the most recent one) MUST match the pipeline's global status
+      const isLatest = i === 0;
+      const status = isLatest ? (pipeline.lastRunStatus as PipelineRun['status']) : faker.helpers.weightedArrayElement([
         { value: 'Success' as const, weight: 0.72 },
         { value: 'Failed' as const, weight: 0.15 },
         { value: 'Running' as const, weight: 0.08 },

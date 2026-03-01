@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Database,
@@ -44,12 +44,12 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import clsx from 'clsx';
 
 const typeNodeConfig: Record<string, { color: string; bg: string; border: string }> = {
-  Source:    { color: 'text-red-400',     bg: 'bg-red-950/50',     border: 'border-red-700' },
-  Ingestion: { color: 'text-orange-400',  bg: 'bg-orange-950/50',  border: 'border-orange-700' },
-  Bronze:   { color: 'text-amber-400',    bg: 'bg-amber-950/50',   border: 'border-amber-700' },
-  Silver:   { color: 'text-gray-300',     bg: 'bg-gray-800/50',    border: 'border-gray-600' },
-  Gold:     { color: 'text-yellow-400',   bg: 'bg-yellow-950/50',  border: 'border-yellow-700' },
-  BI:       { color: 'text-blue-400',     bg: 'bg-blue-950/50',    border: 'border-blue-700' },
+  Source: { color: 'text-red-400', bg: 'bg-red-950/50', border: 'border-red-700' },
+  Ingestion: { color: 'text-orange-400', bg: 'bg-orange-950/50', border: 'border-orange-700' },
+  Bronze: { color: 'text-amber-400', bg: 'bg-amber-950/50', border: 'border-amber-700' },
+  Silver: { color: 'text-gray-300', bg: 'bg-gray-800/50', border: 'border-gray-600' },
+  Gold: { color: 'text-yellow-400', bg: 'bg-yellow-950/50', border: 'border-yellow-700' },
+  BI: { color: 'text-blue-400', bg: 'bg-blue-950/50', border: 'border-blue-700' },
 };
 
 function MiniLineageNode({ data }: { data: { label: string; type: string; location: string } }) {
@@ -97,9 +97,9 @@ function freshnessLabel(lastUpdated: Date): string {
 
 const criticalityConfig: Record<string, { color: string; bg: string; border: string }> = {
   Critical: { color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200' },
-  High:     { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' },
-  Medium:   { color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
-  Low:      { color: 'text-cream-600', bg: 'bg-cream-50', border: 'border-cream-200' },
+  High: { color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200' },
+  Medium: { color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
+  Low: { color: 'text-cream-600', bg: 'bg-cream-50', border: 'border-cream-200' },
 };
 
 type TabKey = 'overview' | 'data' | 'quality' | 'lineage' | 'pipelines' | 'costs';
@@ -126,10 +126,12 @@ function makePipelineColumns(pList: { id: string; name: string }[], dsId?: strin
     { key: 'pipeline', header: 'Pipeline', width: '200px', sortable: true, sortValue: (r) => r.pipelineName, render: (r) => <PipelineLink run={r} pipelineList={pList} datasetId={dsId} datasetName={dsName} /> },
     { key: 'run', header: 'Run', width: '120px', render: (r) => <span className="text-xs text-cream-500">{r.runNumber}</span> },
     { key: 'type', header: 'Type', width: '120px', sortable: true, sortValue: (r) => r.type, render: (r) => <span className="text-xs">{r.type}</span> },
-    { key: 'status', header: 'Status', width: '90px', sortable: true, sortValue: (r) => r.status, render: (r) => {
-      const color = r.status === 'Success' ? 'text-emerald-600' : r.status === 'Failed' ? 'text-red-600' : r.status === 'Running' ? 'text-blue-600' : 'text-cream-500';
-      return <span className={clsx('text-xs font-medium', color)}>{r.status}</span>;
-    }},
+    {
+      key: 'status', header: 'Status', width: '90px', sortable: true, sortValue: (r) => r.status, render: (r) => {
+        const color = r.status === 'Success' ? 'text-emerald-600' : r.status === 'Failed' ? 'text-red-600' : r.status === 'Running' ? 'text-blue-600' : 'text-cream-500';
+        return <span className={clsx('text-xs font-medium', color)}>{r.status}</span>;
+      }
+    },
     { key: 'records', header: 'Records', width: '100px', sortable: true, sortValue: (r) => r.recordsProcessed, render: (r) => <span className="text-xs">{r.recordsProcessed.toLocaleString()}</span> },
     { key: 'date', header: 'Date', width: '110px', sortable: true, sortValue: (r) => new Date(r.startTime).getTime(), render: (r) => <span className="text-xs text-cream-600">{new Date(r.startTime).toLocaleDateString()}</span> },
   ];
@@ -147,7 +149,9 @@ export function DatasetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { datasets, lineage, pipelines, pipelineRuns, costs } = useCatalogData();
-  const [tab, setTab] = useState<TabKey>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = (searchParams.get('tab') as TabKey) || 'overview';
+  const dateRange = searchParams.get('dateRange') || '90';
 
   const dataset = datasets.find((d) => d.id === id);
   useDocumentTitle(dataset ? dataset.displayName : 'Dataset Detail');
@@ -172,10 +176,16 @@ export function DatasetDetail() {
     [id, pipelineRuns]
   );
 
-  const datasetCosts = useMemo(() =>
-    id ? costs.filter((c) => c.entityId === id && c.entityType === 'Dataset') : [],
-    [id, costs]
-  );
+  const datasetCosts = useMemo(() => {
+    if (!id) return [];
+    let dsCosts = costs.filter((c) => c.entityId === id && c.entityType === 'Dataset');
+    if (dateRange) {
+      const days = parseInt(dateRange, 10);
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      dsCosts = dsCosts.filter(c => new Date(c.date).getTime() >= cutoff);
+    }
+    return dsCosts;
+  }, [id, costs, dateRange]);
 
   const costChartData = useMemo(() => {
     if (datasetCosts.length === 0) return [];
@@ -238,7 +248,7 @@ export function DatasetDetail() {
 
   const qualityColor = dataset.qualityScore >= 90 ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
     : dataset.qualityScore >= 75 ? 'bg-blue-100 text-blue-700 border-blue-200'
-    : 'bg-amber-100 text-amber-700 border-amber-200';
+      : 'bg-amber-100 text-amber-700 border-amber-200';
 
   const critConf = criticalityConfig[dataset.criticality] || criticalityConfig.Medium;
 
@@ -326,7 +336,13 @@ export function DatasetDetail() {
           {tabs.map((t) => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => {
+                if (t.key === 'costs') {
+                  setSearchParams({ tab: t.key, dateRange: '90' });
+                } else {
+                  setSearchParams({ tab: t.key });
+                }
+              }}
               className={clsx(
                 'flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors',
                 tab === t.key
@@ -505,8 +521,8 @@ export function DatasetDetail() {
                     tick={{ fontSize: 9, fill: '#a3a3a3' }}
                     tickFormatter={(v: string) => {
                       const d = new Date(v);
-                      if (d.getDate() === 1 || d.getDate() === 15) {
-                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      if (d.getUTCDate() === 1 || d.getUTCDate() === 15) {
+                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
                       }
                       return '';
                     }}
@@ -515,7 +531,7 @@ export function DatasetDetail() {
                   <YAxis tick={{ fontSize: 9, fill: '#a3a3a3' }} />
                   <Tooltip
                     contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e5e5' }}
-                    labelFormatter={(label) => new Date(String(label)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    labelFormatter={(label) => new Date(String(label)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })}
                   />
                   <Bar dataKey="pass" stackId="a" fill="#34d399" radius={[0, 0, 0, 0]} name="Pass" />
                   <Bar dataKey="warn" stackId="a" fill="#fbbf24" radius={[0, 0, 0, 0]} name="Warn" />
@@ -596,43 +612,56 @@ export function DatasetDetail() {
       )}
 
       {tab === 'costs' && (
-        datasetCosts.length > 0 ? (
+        datasetCosts.length > 0 || dateRange ? (
           <div className="space-y-6">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
-                <p className="text-xs text-cream-500 mb-1">Total Cost</p>
-                <p className="text-xl font-bold text-cream-900">${costSummary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                <p className="text-[10px] text-cream-400 mt-1">Last 90 days</p>
-              </div>
-              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
-                <p className="text-xs text-cream-500 mb-1">Storage</p>
-                <p className="text-xl font-bold text-cream-900">${costSummary.storage.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  {costSummary.storageTrend >= 0 ? (
-                    <TrendingUp className="w-3 h-3 text-red-500" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3 text-emerald-500" />
-                  )}
-                  <span className={clsx('text-[10px] font-medium', costSummary.storageTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
-                    {Math.abs(costSummary.storageTrend).toFixed(0)}%
-                  </span>
-                </div>
-              </div>
-              <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
-                <p className="text-xs text-cream-500 mb-1">Compute</p>
-                <p className="text-xl font-bold text-cream-900">${costSummary.compute.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  {costSummary.computeTrend >= 0 ? (
-                    <TrendingUp className="w-3 h-3 text-red-500" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3 text-emerald-500" />
-                  )}
-                  <span className={clsx('text-[10px] font-medium', costSummary.computeTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
-                    {Math.abs(costSummary.computeTrend).toFixed(0)}%
-                  </span>
-                </div>
-              </div>
+            <div className="flex justify-end mb-4">
+              <select
+                value={dateRange}
+                onChange={(e) => setSearchParams({ tab: 'costs', dateRange: e.target.value })}
+                className="text-sm border border-cream-200 rounded-lg px-3 py-2 bg-white text-cream-700 focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors"
+              >
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
             </div>
+            {datasetCosts.length > 0 ? (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <p className="text-xs text-cream-500 mb-1">Total Cost</p>
+                  <p className="text-xl font-bold text-cream-900">${costSummary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-[10px] text-cream-400 mt-1">Last {dateRange} days</p>
+                </div>
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <p className="text-xs text-cream-500 mb-1">Storage</p>
+                  <p className="text-xl font-bold text-cream-900">${costSummary.storage.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {costSummary.storageTrend >= 0 ? (
+                      <TrendingUp className="w-3 h-3 text-red-500" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3 text-emerald-500" />
+                    )}
+                    <span className={clsx('text-[10px] font-medium', costSummary.storageTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
+                      {Math.abs(costSummary.storageTrend).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <p className="text-xs text-cream-500 mb-1">Compute</p>
+                  <p className="text-xl font-bold text-cream-900">${costSummary.compute.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {costSummary.computeTrend >= 0 ? (
+                      <TrendingUp className="w-3 h-3 text-red-500" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3 text-emerald-500" />
+                    )}
+                    <span className={clsx('text-[10px] font-medium', costSummary.computeTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
+                      {Math.abs(costSummary.computeTrend).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             {costChartData.length > 1 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -672,9 +701,9 @@ export function DatasetDetail() {
             <DataTable columns={costTableColumns} data={datasetCosts} pageSize={10} keyExtractor={(r) => r.id} />
           </div>
         ) : (
-          <div className="text-center py-12 text-cream-400 text-sm">
+          <div className="text-center py-12 text-cream-400 text-sm" data-testid="empty-costs">
             <DollarSign className="w-8 h-8 mx-auto mb-2 text-cream-300" />
-            No costs recorded for this dataset
+            No costs recorded for this dataset in the last {dateRange} days
           </div>
         )
       )}

@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Play,
@@ -16,7 +16,20 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  TrendingDown,
+  TrendingUp,
+  DollarSign
 } from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import { DataTable, type Column } from '../ui/DataTable';
 import {
   ReactFlow,
   Background,
@@ -33,18 +46,56 @@ import dagre from 'dagre';
 import { useCatalogData } from '../../hooks/useCatalogData';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { getSuccessLogSteps, getFailureLogSteps } from '../../data/generators/log-templates';
-import type { PipelineRun, PipelineRunLog } from '../../data/types';
+import type { PipelineRun, PipelineRunLog, CostEntry } from '../../data/types';
 import clsx from 'clsx';
 
-type TabKey = 'overview' | 'runs' | 'lineage';
+type TabKey = 'overview' | 'runs' | 'lineage' | 'costs';
 type Environment = 'production' | 'staging';
 
+const costTableColumns: Column<CostEntry>[] = [
+  {
+    key: 'date',
+    header: 'Date',
+    render: (row) => new Date(row.date).toLocaleDateString(),
+    sortable: true,
+    sortValue: (row) => new Date(row.date).getTime(),
+  },
+  {
+    key: 'category',
+    header: 'Category',
+    render: (row) => (
+      <span className={clsx(
+        'px-2 py-0.5 rounded-full text-[10px] font-semibold',
+        row.category === 'Storage' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+      )}>
+        {row.category}
+      </span>
+    ),
+    sortable: true,
+    sortValue: (row) => row.category,
+  },
+  {
+    key: 'subcategory',
+    header: 'Subcategory',
+    render: (row) => row.subcategory,
+    sortable: true,
+    sortValue: (row) => row.subcategory,
+  },
+  {
+    key: 'amount',
+    header: 'Amount',
+    render: (row) => <span className="font-mono">${row.amount.toFixed(2)}</span>,
+    sortable: true,
+    sortValue: (row) => row.amount,
+  },
+];
+
 const statusColors: Record<string, { badge: string; border: string; dot: string }> = {
-  Success:   { badge: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-400', dot: 'bg-emerald-400' },
-  Failed:    { badge: 'bg-red-100 text-red-700',         border: 'border-l-red-400',     dot: 'bg-red-400' },
-  Running:   { badge: 'bg-blue-100 text-blue-700',       border: 'border-l-blue-400',    dot: 'bg-blue-400' },
-  Cancelled: { badge: 'bg-cream-100 text-cream-600',     border: 'border-l-cream-400',   dot: 'bg-cream-400' },
-  Never:     { badge: 'bg-cream-100 text-cream-500',     border: 'border-l-cream-300',   dot: 'bg-cream-300' },
+  Success: { badge: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-400', dot: 'bg-emerald-400' },
+  Failed: { badge: 'bg-red-100 text-red-700', border: 'border-l-red-400', dot: 'bg-red-400' },
+  Running: { badge: 'bg-blue-100 text-blue-700', border: 'border-l-blue-400', dot: 'bg-blue-400' },
+  Cancelled: { badge: 'bg-cream-100 text-cream-600', border: 'border-l-cream-400', dot: 'bg-cream-400' },
+  Never: { badge: 'bg-cream-100 text-cream-500', border: 'border-l-cream-300', dot: 'bg-cream-300' },
 };
 
 function formatDuration(seconds: number): string {
@@ -69,9 +120,9 @@ function formatCron(cron: string): string {
 }
 
 const logLevelColors: Record<string, string> = {
-  INFO:  'text-blue-400',
+  INFO: 'text-blue-400',
   DEBUG: 'text-gray-500',
-  WARN:  'text-amber-400',
+  WARN: 'text-amber-400',
   ERROR: 'text-red-400',
 };
 
@@ -84,18 +135,18 @@ function LogLine({ log }: { log: PipelineRunLog }) {
       <span className={clsx(
         'flex-1',
         log.level === 'ERROR' ? 'text-red-300' :
-        log.level === 'WARN' ? 'text-amber-300' :
-        log.level === 'DEBUG' ? 'text-gray-500' :
-        'text-gray-300'
+          log.level === 'WARN' ? 'text-amber-300' :
+            log.level === 'DEBUG' ? 'text-gray-500' :
+              'text-gray-300'
       )}>{log.message}</span>
     </div>
   );
 }
 
 const lineageNodeConfig: Record<string, { color: string; bg: string; border: string }> = {
-  input:    { color: 'text-blue-400',    bg: 'bg-blue-950/50',    border: 'border-blue-700' },
-  pipeline: { color: 'text-white',       bg: 'bg-gray-800',       border: 'border-gray-500' },
-  output:   { color: 'text-emerald-400', bg: 'bg-emerald-950/50', border: 'border-emerald-700' },
+  input: { color: 'text-blue-400', bg: 'bg-blue-950/50', border: 'border-blue-700' },
+  pipeline: { color: 'text-white', bg: 'bg-gray-800', border: 'border-gray-500' },
+  output: { color: 'text-emerald-400', bg: 'bg-emerald-950/50', border: 'border-emerald-700' },
 };
 
 function PipelineFlowNode({ data }: { data: { label: string; sublabel: string; nodeType: string } }) {
@@ -134,15 +185,17 @@ export function PipelineDetail() {
   const location = useLocation();
   const fromDataset = (location.state as { fromDataset?: { id: string; name: string } } | null)?.fromDataset;
   const {
-    pipelines, pipelineRuns, datasets,
+    pipelines, pipelineRuns, datasets, costs,
     addPipelineRun, updatePipelineRun, updatePipeline,
   } = useCatalogData();
 
   const pipeline = pipelines.find((p) => p.id === id);
   useDocumentTitle(pipeline ? pipeline.displayName : 'Pipeline');
 
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
-  const [expandedRun, setExpandedRun] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get('tab') as TabKey) || 'overview';
+  const dateRange = searchParams.get('dateRange') || '90';
+  const expandedRun = searchParams.get('run');
   const [isRunning, setIsRunning] = useState(false);
   const [liveRunId, setLiveRunId] = useState<string | null>(null);
   const [liveLogs, setLiveLogs] = useState<PipelineRunLog[]>([]);
@@ -226,6 +279,60 @@ export function PipelineDetail() {
     return { lineageNodes: layoutPipelineGraph(nodes, edges), lineageEdges: edges };
   }, [pipeline, inputDs, outputDs]);
 
+  const pipelineCosts = useMemo(() => {
+    if (!id || !pipeline) return [];
+    let pCosts = costs.filter((c) => c.entityId === id && c.entityType === 'Pipeline');
+    if (dateRange) {
+      const days = parseInt(dateRange, 10);
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      pCosts = pCosts.filter((c) => new Date(c.date).getTime() >= cutoff);
+    }
+    return pCosts;
+  }, [id, pipeline, costs, dateRange]);
+
+  const costChartData = useMemo(() => {
+    if (pipelineCosts.length === 0) return [];
+    const byDate: Record<string, { storage: number; compute: number }> = {};
+    for (const c of pipelineCosts) {
+      const key = new Date(c.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      if (!byDate[key]) byDate[key] = { storage: 0, compute: 0 };
+      if (c.category === 'Storage') byDate[key].storage += c.amount;
+      else if (c.category === 'Compute') byDate[key].compute += c.amount;
+    }
+    return Object.entries(byDate)
+      .map(([date, vals]) => ({ date, storage: +vals.storage.toFixed(2), compute: +vals.compute.toFixed(2) }))
+      .reverse();
+  }, [pipelineCosts]);
+
+  const costSummary = useMemo(() => {
+    const storage = pipelineCosts.filter((c: any) => c.category === 'Storage').reduce((s: number, c: any) => s + c.amount, 0);
+    const compute = pipelineCosts.filter((c: any) => c.category === 'Compute').reduce((s: number, c: any) => s + c.amount, 0);
+    const total = pipelineCosts.reduce((s: number, c: any) => s + c.amount, 0);
+    const halfLen = Math.floor(costChartData.length / 2);
+    const recentStorage = costChartData.slice(halfLen).reduce((s: number, d) => s + d.storage, 0);
+    const olderStorage = costChartData.slice(0, halfLen).reduce((s: number, d) => s + d.storage, 0);
+    const storageTrend = olderStorage > 0 ? ((recentStorage - olderStorage) / olderStorage) * 100 : 0;
+    const recentCompute = costChartData.slice(halfLen).reduce((s: number, d) => s + d.compute, 0);
+    const olderCompute = costChartData.slice(0, halfLen).reduce((s: number, d) => s + d.compute, 0);
+    const computeTrend = olderCompute > 0 ? ((recentCompute - olderCompute) / olderCompute) * 100 : 0;
+    return { storage, compute, total, storageTrend, computeTrend };
+  }, [pipelineCosts, costChartData]);
+
+  const costTrendUp = useMemo(() => {
+    if (pipelineCosts.length === 0) return null;
+    const now = Date.now();
+    const cutoff15 = now - 15 * 24 * 60 * 60 * 1000;
+    const cutoff30 = now - 30 * 24 * 60 * 60 * 1000;
+    const recent = pipelineCosts
+      .filter((c: any) => { const t = new Date(c.date).getTime(); return t >= cutoff15 && t <= now; })
+      .reduce((s: number, c: any) => s + c.amount, 0);
+    const prev = pipelineCosts
+      .filter((c: any) => { const t = new Date(c.date).getTime(); return t >= cutoff30 && t < cutoff15; })
+      .reduce((s: number, c: any) => s + c.amount, 0);
+    if (prev === 0 && recent === 0) return null;
+    return recent >= prev;
+  }, [pipelineCosts]);
+
   useEffect(() => {
     if (logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
@@ -281,8 +388,7 @@ export function PipelineDetail() {
     setLiveElapsed(0);
     setIsRunning(true);
     setSelectedEnv(env);
-    setActiveTab('runs');
-    setExpandedRun(runId);
+    setSearchParams({ tab: 'runs', run: runId });
 
     timerRef.current = setInterval(() => {
       setLiveElapsed((prev) => prev + 1);
@@ -351,10 +457,11 @@ export function PipelineDetail() {
 
   const sColors = statusColors[pipeline.lastRunStatus] || statusColors.Never;
 
-  const tabs: { key: TabKey; label: string }[] = [
+  const tabs: { key: TabKey; label: string; count?: number }[] = [
     { key: 'overview', label: 'Overview' },
-    { key: 'runs', label: `Runs (${runs.length})` },
+    { key: 'runs', label: `Runs`, count: runs.length },
     { key: 'lineage', label: 'Lineage' },
+    { key: 'costs', label: 'Costs' },
   ];
 
   return (
@@ -488,15 +595,35 @@ export function PipelineDetail() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                if (tab.key === 'costs') {
+                  setSearchParams({ tab: tab.key, dateRange: '90', ...(expandedRun ? { run: expandedRun } : {}) });
+                } else {
+                  setSearchParams({ tab: tab.key, ...(expandedRun ? { run: expandedRun } : {}) });
+                }
+              }}
               className={clsx(
-                'px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors',
+                'flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors',
                 activeTab === tab.key
                   ? 'border-brand-900 text-brand-900 font-medium'
                   : 'border-transparent text-cream-500 hover:text-cream-700'
               )}
             >
               {tab.label}
+              {tab.key === 'costs' && costTrendUp !== null ? (
+                costTrendUp ? (
+                  <TrendingUp className="w-3.5 h-3.5 text-red-400" />
+                ) : (
+                  <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
+                )
+              ) : tab.count !== undefined ? (
+                <span className={clsx(
+                  'text-[10px] px-1.5 py-0.5 rounded-full',
+                  activeTab === tab.key ? 'bg-brand-100 text-brand-800' : 'bg-cream-100 text-cream-500'
+                )}>
+                  {tab.count}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -646,7 +773,15 @@ export function PipelineDetail() {
                 )}
               >
                 <button
-                  onClick={() => setExpandedRun(isExpanded ? null : run.id)}
+                  onClick={() => {
+                    const newParams = new URLSearchParams(searchParams);
+                    if (isExpanded) {
+                      newParams.delete('run');
+                    } else {
+                      newParams.set('run', run.id);
+                    }
+                    setSearchParams(newParams);
+                  }}
                   className="flex items-center justify-between w-full px-4 py-3 text-left"
                 >
                   <div className="flex items-center gap-3">
@@ -756,6 +891,124 @@ export function PipelineDetail() {
             <div className="text-center py-12 text-cream-400 text-sm">No runs recorded for this pipeline yet.</div>
           )}
         </div>
+      )}
+
+      {activeTab === 'costs' && (
+        pipelineCosts.length > 0 || dateRange ? (
+          <div className="space-y-6">
+            <div className="flex justify-end mb-4">
+              <select
+                value={dateRange}
+                onChange={(e) => setSearchParams({ tab: 'costs', dateRange: e.target.value })}
+                className="text-sm border border-cream-200 rounded-lg px-3 py-2 bg-white text-cream-700 focus:outline-none focus:ring-2 focus:ring-brand-300 transition-colors"
+              >
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
+            </div>
+
+            <div className="bg-white border text-center border-cream-200 rounded-xl shadow-card p-4">
+              <h3 className="text-sm font-semibold text-cream-800 mb-3 text-left">Produced Datasets</h3>
+              {outputDs.length === 0 ? (
+                <p className="text-xs text-cream-400">No output datasets produced by this pipeline.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {outputDs.map((d) => (
+                    <Link
+                      key={d.id}
+                      to={`/datasets/${d.id}`}
+                      className="inline-flex items-center gap-2 text-xs bg-cream-50 hover:bg-cream-100 border border-cream-200 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                      <span className="text-cream-800 font-medium">{d.displayName}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {pipelineCosts.length > 0 ? (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <p className="text-xs text-cream-500 mb-1">Total Cost</p>
+                  <p className="text-xl font-bold text-cream-900">${costSummary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-[10px] text-cream-400 mt-1">Last {dateRange} days</p>
+                </div>
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <p className="text-xs text-cream-500 mb-1">Storage</p>
+                  <p className="text-xl font-bold text-cream-900">${costSummary.storage.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {costSummary.storageTrend >= 0 ? (
+                      <TrendingUp className="w-3 h-3 text-red-500" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3 text-emerald-500" />
+                    )}
+                    <span className={clsx('text-[10px] font-medium', costSummary.storageTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
+                      {Math.abs(costSummary.storageTrend).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <p className="text-xs text-cream-500 mb-1">Compute</p>
+                  <p className="text-xl font-bold text-cream-900">${costSummary.compute.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {costSummary.computeTrend >= 0 ? (
+                      <TrendingUp className="w-3 h-3 text-red-500" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3 text-emerald-500" />
+                    )}
+                    <span className={clsx('text-[10px] font-medium', costSummary.computeTrend >= 0 ? 'text-red-500' : 'text-emerald-500')}>
+                      {Math.abs(costSummary.computeTrend).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {costChartData.length > 1 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <h3 className="text-sm font-semibold text-cream-800 mb-3">Storage Cost Trend</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={costChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#737373' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#737373' }} tickFormatter={(v) => `$${v}`} />
+                      <Tooltip
+                        contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e5e5' }}
+                        formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, 'Storage']}
+                      />
+                      <Line type="monotone" dataKey="storage" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="bg-white border border-cream-200 rounded-xl shadow-card p-4">
+                  <h3 className="text-sm font-semibold text-cream-800 mb-3">Compute Cost Trend</h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={costChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#737373' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#737373' }} tickFormatter={(v) => `$${v}`} />
+                      <Tooltip
+                        contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e5e5e5' }}
+                        formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, 'Compute']}
+                      />
+                      <Line type="monotone" dataKey="compute" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            <DataTable columns={costTableColumns} data={pipelineCosts} pageSize={10} keyExtractor={(r: any) => r.id} />
+          </div>
+        ) : (
+          <div className="text-center py-12 text-cream-400 text-sm" data-testid="empty-costs">
+            <DollarSign className="w-8 h-8 mx-auto mb-2 text-cream-300" />
+            No costs recorded for this pipeline in the last {dateRange} days
+          </div>
+        )
       )}
 
       {activeTab === 'lineage' && (

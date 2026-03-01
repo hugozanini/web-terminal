@@ -26,6 +26,7 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 pnpm-debug.log*
+tmux-client-*.log
 
 # Editor directories and files
 .vscode/

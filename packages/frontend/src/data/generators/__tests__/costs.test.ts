@@ -2,15 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { generateCosts } from '../costs';
 import { generateDatasets } from '../datasets';
 import { generateDataSources } from '../data-sources';
-import { generatePipelines, generatePipelineRuns } from '../pipeline-runs';
+import { generatePipelines } from '../pipeline-runs';
 
 describe('generateCosts', () => {
   const datasets = generateDatasets(10);
   const dataSources = generateDataSources(5);
   const datasetIds = datasets.map((d) => d.id);
   const pipelines = generatePipelines(datasetIds);
-  const pipelineRuns = generatePipelineRuns(pipelines);
-  const costs = generateCosts(80, datasets, pipelineRuns, dataSources);
+  const costs = generateCosts(80, datasets, pipelines, dataSources);
 
   it('generates per-dataset entries plus generic entries', () => {
     expect(costs.length).toBeGreaterThan(80);
@@ -20,6 +19,13 @@ describe('generateCosts', () => {
     for (const ds of datasets) {
       const dsCosts = costs.filter((c) => c.entityId === ds.id && c.entityType === 'Dataset');
       expect(dsCosts.length).toBeGreaterThanOrEqual(6);
+    }
+  });
+
+  it('every pipeline has at least 4 cost entries', () => {
+    for (const p of pipelines) {
+      const pCosts = costs.filter((c) => c.entityId === p.id && c.entityType === 'Pipeline');
+      expect(pCosts.length).toBeGreaterThanOrEqual(4);
     }
   });
 

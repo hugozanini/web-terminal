@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Database, Clock, User, Layers } from 'lucide-react';
 import { PageHeader } from '../layout/PageHeader';
 import { SearchInput } from '../ui/SearchInput';
@@ -45,11 +45,28 @@ export function Datasets() {
   const { datasets } = useCatalogData();
   const navigate = useNavigate();
   useDocumentTitle('Datasets');
-  const [search, setSearch] = useState('');
-  const [types, setTypes] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [sortKey, setSortKey] = useState<SortKey>('quality');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const search = searchParams.get('q') || '';
+  const types = searchParams.getAll('type');
+  const tags = searchParams.getAll('tag');
+  const sortKey = (searchParams.get('sort') as SortKey) || 'quality';
+  const page = parseInt(searchParams.get('page') || '1', 10);
+
+  const updateFilters = (updates: Record<string, string | string[] | null>) => {
+    const newParams = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null || (Array.isArray(value) && value.length === 0) || value === '') {
+        newParams.delete(key);
+      } else if (Array.isArray(value)) {
+        newParams.delete(key);
+        value.forEach(v => newParams.append(key, v));
+      } else {
+        newParams.set(key, value);
+      }
+    }
+    setSearchParams(newParams);
+  };
 
   const typeOptions = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -105,7 +122,7 @@ export function Datasets() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const pageData = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const handleFilterChange = () => setPage(1);
+
 
   return (
     <div>
@@ -116,7 +133,7 @@ export function Datasets() {
           <div className="flex items-center gap-3">
             <select
               value={sortKey}
-              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              onChange={(e) => updateFilters({ sort: e.target.value })}
               className="text-sm border border-cream-200 rounded-lg px-3 py-2 bg-white text-cream-700 focus:outline-none focus:ring-2 focus:ring-brand-300"
             >
               <option value="quality">Sort by Quality Score</option>
@@ -131,13 +148,13 @@ export function Datasets() {
       <div className="space-y-4 mb-6">
         <SearchInput
           value={search}
-          onChange={(v) => { setSearch(v); handleFilterChange(); }}
+          onChange={(v) => { updateFilters({ q: v, page: '1' }); }}
           placeholder="Search by name, description, or owner..."
         />
         <div className="flex flex-wrap gap-4">
-          <FilterChips options={typeOptions} selected={types} onChange={(v) => { setTypes(v); handleFilterChange(); }} />
+          <FilterChips options={typeOptions} selected={types} onChange={(v) => { updateFilters({ type: v, page: '1' }); }} />
           <div className="w-px bg-cream-200" />
-          <FilterChips options={tagOptions} selected={tags} onChange={(v) => { setTags(v); handleFilterChange(); }} />
+          <FilterChips options={tagOptions} selected={tags} onChange={(v) => { updateFilters({ tag: v, page: '1' }); }} />
         </div>
       </div>
 
@@ -200,7 +217,7 @@ export function Datasets() {
 
       {totalPages > 1 && (
         <div className="flex justify-center mt-6">
-          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+          <Pagination currentPage={page} totalPages={totalPages} onPageChange={(p) => updateFilters({ page: String(p) })} />
         </div>
       )}
     </div>

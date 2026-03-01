@@ -22,6 +22,7 @@ export interface Dataset {
   source: string;
   createdAt: Date;
   sampleData: Record<string, unknown>[];
+  fields: { name: string; type: string; description: string }[];
   qualityDashboard: QualityDashboard;
 }
 

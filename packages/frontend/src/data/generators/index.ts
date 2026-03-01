@@ -34,7 +34,7 @@ export function generateCatalogData(): CatalogData {
   const pipelineRuns = generatePipelineRuns(pipelines);
   const lineage = generateLineage(datasetIds);
   const qualityChecks = generateQualityChecks(100, datasets);
-  const costs = generateCosts(80, datasets, pipelineRuns, dataSources);
+  const costs = generateCosts(80, datasets, pipelines, dataSources);
 
   return { datasets, dataSources, lineage, pipelines, pipelineRuns, qualityChecks, costs };
 }
