@@ -115,7 +115,7 @@ export function WebMCPIntegration() {
                 },
                 {
                     name: 'view_dataset_details',
-                    description: 'View specific details of a dataset by navigating directly to a specific tab (overview, data, quality, lineage, pipelines, costs).',
+                    description: 'View specific details of a dataset by navigating directly to a specific tab (overview, data, quality, lineage, pipelines, costs). Use the "pipelines" tab to see executions/runs related to this dataset, and the "costs" tab to see cost trends.',
                     inputSchema: {
                         type: 'object',
                         properties: {
@@ -155,7 +155,35 @@ export function WebMCPIntegration() {
                         else if (args.tab === 'data') info = JSON.stringify(d.sampleData, null, 2);
                         else if (args.tab === 'quality') info = JSON.stringify(d.qualityDashboard, null, 2);
 
-                        return { content: [{ type: 'text', text: `Navigated to Dataset ${args.id} tab ${args.tab}.\nPage Content Context:\n${info}` }] };
+                        else if (args.tab === 'costs') {
+                            const datasetCosts = costs.filter((c: any) => c.entityId === d.id && c.entityType === 'Dataset');
+                            datasetCosts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                            info = JSON.stringify(datasetCosts.map((c: any) => ({
+                                date: c.date,
+                                category: c.category,
+                                subcategory: c.subcategory,
+                                amount: c.amount,
+                                description: c.description
+                            })), null, 2);
+                        }
+                        else if (args.tab === 'pipelines') {
+                            const datasetPipelines = pipelineRuns.filter((r: any) => r.inputDatasets.includes(d.id) || r.outputDatasets.includes(d.id));
+                            datasetPipelines.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+                            info = JSON.stringify(datasetPipelines.map((p: any) => ({
+                                runId: p.id,
+                                pipelineId: p.pipelineId,
+                                pipelineName: p.pipelineName,
+                                status: p.status,
+                                startTime: p.startTime,
+                                duration: p.duration
+                            })), null, 2);
+                        }
+
+                        let text = `Navigated to Dataset ${args.id} tab ${args.tab}.\nPage Content Context:\n${info}`;
+                        if (!info || info === '[]') {
+                            text += `\n\nNo records found in this tab.`;
+                        }
+                        return { content: [{ type: 'text', text }] };
                     }
                 },
                 {
