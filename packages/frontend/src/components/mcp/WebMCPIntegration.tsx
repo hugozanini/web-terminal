@@ -60,9 +60,13 @@ export function WebMCPIntegration() {
                             .filter(p => p.displayName.toLowerCase().includes(queryLower) || p.name.toLowerCase().includes(queryLower))
                             .map(p => ({ id: p.id, name: p.displayName, type: 'pipeline' }));
 
-                        return {
-                            content: [{ type: 'text', text: `Searching for "${args.query}" with tab=${tab}.\n\nResults:\nDatasets: ${JSON.stringify(matchingDatasets)}\nPipelines: ${JSON.stringify(matchingPipelines)}` }]
-                        };
+                        const isEmpty = matchingDatasets.length === 0 && matchingPipelines.length === 0;
+                        let text = `Searching for "${args.query}" with tab=${tab}.\n\nResults:\nDatasets: ${JSON.stringify(matchingDatasets)}\nPipelines: ${JSON.stringify(matchingPipelines)}`;
+                        if (isEmpty) {
+                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your query based on the context of the app.`;
+                        }
+
+                        return { content: [{ type: 'text', text }] };
                     }
                 },
                 {
@@ -101,9 +105,12 @@ export function WebMCPIntegration() {
                         navigate(`/datasets?${params.toString()}`);
 
                         const summary = filtered.map(d => ({ id: d.id, name: d.displayName, type: d.type, owner: d.owner }));
-                        return {
-                            content: [{ type: 'text', text: `Navigated to datasets with filters.\nFound ${summary.length} datasets. Results (up to 5): ${JSON.stringify(summary.slice(0, 5))}` }]
-                        };
+                        let text = `Navigated to datasets with filters.\nFound ${summary.length} datasets. Results (up to 5): ${JSON.stringify(summary.slice(0, 5))}`;
+                        if (summary.length === 0) {
+                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your query or filters based on the context of the app.`;
+                        }
+
+                        return { content: [{ type: 'text', text }] };
                     }
                 },
                 {
@@ -205,7 +212,12 @@ export function WebMCPIntegration() {
                         navigate(`/pipelines?${params.toString()}`);
 
                         const summary = filtered.map(p => ({ id: p.id, name: p.displayName, type: p.type, status: p.lastRunStatus, engine: p.engine }));
-                        return { content: [{ type: 'text', text: `Navigated to Pipelines list with filtered view.\nFound ${summary.length} pipelines. Results (up to 5): ${JSON.stringify(summary.slice(0, 5))}` }] };
+                        let text = `Navigated to Pipelines list with filtered view.\nFound ${summary.length} pipelines. Results (up to 5): ${JSON.stringify(summary.slice(0, 5))}`;
+                        if (summary.length === 0) {
+                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your query or filters based on the context of the app.`;
+                        }
+
+                        return { content: [{ type: 'text', text }] };
                     }
                 },
                 {
@@ -298,7 +310,10 @@ export function WebMCPIntegration() {
                         type: 'object',
                         properties: {
                             dateRange: { type: 'string', enum: ['7', '15', '30', '60', '90'] },
-                            category: { type: 'string' },
+                            category: {
+                                type: 'string',
+                                enum: ['Storage', 'Compute', 'Query', 'Transfer', 'Licensing', 'Infrastructure']
+                            },
                             entityType: { type: 'string' },
                             search: { type: 'string', description: 'Search term for specific infrastructure components. Do not include extraneous words.' }
                         }
@@ -347,12 +362,12 @@ export function WebMCPIntegration() {
                                 .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))
                         };
 
-                        return {
-                            content: [{
-                                type: 'text',
-                                text: `Filtered costs with params: ${params.toString()}.\n\nCost Data Context:\n${JSON.stringify(summary, null, 2)}`
-                            }]
-                        };
+                        let text = `Filtered costs with params: ${params.toString()}.\n\nCost Data Context:\n${JSON.stringify(summary, null, 2)}`;
+                        if (filteredCosts.length === 0) {
+                            text += `\n\nNo records found. Please retry this tool up to 2 times with semantic variations of your search query or filters based on the context of the app. Valid categories are: Storage, Compute, Query, Transfer, Licensing, Infrastructure.`;
+                        }
+
+                        return { content: [{ type: 'text', text }] };
                     }
                 }
             ]
