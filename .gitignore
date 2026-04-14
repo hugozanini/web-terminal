@@ -43,3 +43,9 @@ Thumbs.db
 *.tsbuildinfo
 
 OpenMetadata/
+
+# Gemini CLI project-level config (written by `gemini mcp add --scope project`)
+.gemini/
+
+# Local workspace created by CLI agents during demo runs
+workspace/
