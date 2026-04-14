@@ -10,6 +10,7 @@ import { PipelineDetail } from './components/catalog/PipelineDetail';
 import { Costs } from './components/catalog/Costs';
 import { SearchResults } from './components/catalog/SearchResults';
 import { WebMCPIntegration } from './components/mcp/WebMCPIntegration';
+import { MCPBridgeClient } from './components/mcp/MCPBridgeClient';
 
 function App() {
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -28,6 +29,7 @@ function App() {
   return (
     <BrowserRouter>
       <WebMCPIntegration />
+      <MCPBridgeClient />
       <div className="flex h-screen overflow-hidden bg-cream-50">
         <Sidebar
           isTerminalOpen={isTerminalOpen}
