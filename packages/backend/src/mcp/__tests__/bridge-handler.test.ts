@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'events';
+import type { WebSocket } from 'ws';
 import { bridgeManager, handleMCPBridgeWebSocket } from '../bridge-handler.js';
 
 // ---------------------------------------------------------------------------
@@ -13,6 +14,10 @@ function createMockWs(readyState = 1): MockWs {
   ws.send = vi.fn();
   ws.readyState = readyState;
   return ws;
+}
+
+function asWs(ws: MockWs): WebSocket {
+  return ws as unknown as WebSocket;
 }
 
 /** Reset the singleton between tests by nulling private fields directly. */
@@ -42,19 +47,19 @@ describe('BridgeManager', () => {
 
     it('returns true after registering an open WebSocket', () => {
       const ws = createMockWs(1);
-      bridgeManager.register(ws);
+      bridgeManager.register(asWs(ws));
       expect(bridgeManager.isConnected()).toBe(true);
     });
 
     it('returns false when the registered WebSocket is not open', () => {
       const ws = createMockWs(3); // CLOSED
-      bridgeManager.register(ws);
+      bridgeManager.register(asWs(ws));
       expect(bridgeManager.isConnected()).toBe(false);
     });
 
     it('returns false after the registered WebSocket closes', () => {
       const ws = createMockWs();
-      bridgeManager.register(ws);
+      bridgeManager.register(asWs(ws));
       ws.emit('close');
       expect(bridgeManager.isConnected()).toBe(false);
     });
@@ -67,8 +72,8 @@ describe('BridgeManager', () => {
       const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const ws1 = createMockWs();
       const ws2 = createMockWs();
-      bridgeManager.register(ws1);
-      bridgeManager.register(ws2);
+      bridgeManager.register(asWs(ws1));
+      bridgeManager.register(asWs(ws2));
       expect(spy).toHaveBeenCalledWith(
         expect.stringContaining('replacing existing browser connection'),
       );
@@ -77,7 +82,7 @@ describe('BridgeManager', () => {
 
     it('rejects all pending calls when the registered WebSocket closes', async () => {
       const ws = createMockWs();
-      bridgeManager.register(ws);
+      bridgeManager.register(asWs(ws));
 
       // Start a pending call without awaiting it
       const pending = bridgeManager.callTool('search', {}).catch((e: Error) => e);
@@ -99,7 +104,7 @@ describe('BridgeManager', () => {
 
     it('sends a tool_call message to the registered WebSocket', async () => {
       const ws = createMockWs();
-      bridgeManager.register(ws);
+      bridgeManager.register(asWs(ws));
 
       const resultPromise = bridgeManager.callTool('search_catalog', { q: 'farm' });
 
@@ -117,7 +122,7 @@ describe('BridgeManager', () => {
 
     it('resolves with the result when handleToolResult is called', async () => {
       const ws = createMockWs();
-      bridgeManager.register(ws);
+      bridgeManager.register(asWs(ws));
 
       const resultPromise = bridgeManager.callTool('view_dashboard', {});
       const { callId } = JSON.parse(ws.send.mock.calls[0][0] as string);
@@ -128,7 +133,7 @@ describe('BridgeManager', () => {
 
     it('rejects when the bridge disconnects during a pending call', async () => {
       const ws = createMockWs();
-      bridgeManager.register(ws);
+      bridgeManager.register(asWs(ws));
 
       const resultPromise = bridgeManager.callTool('slow_tool', {});
       ws.emit('close');
@@ -140,7 +145,7 @@ describe('BridgeManager', () => {
       vi.useFakeTimers();
       try {
         const ws = createMockWs();
-        bridgeManager.register(ws);
+        bridgeManager.register(asWs(ws));
 
         const resultPromise = bridgeManager.callTool('slow_tool', {}, 50);
         vi.advanceTimersByTime(100);
@@ -156,7 +161,7 @@ describe('BridgeManager', () => {
   describe('handleToolResult', () => {
     it('resolves the matching pending call with the returned result', async () => {
       const ws = createMockWs();
-      bridgeManager.register(ws);
+      bridgeManager.register(asWs(ws));
 
       const resultPromise = bridgeManager.callTool('filter', {});
       const { callId } = JSON.parse(ws.send.mock.calls[0][0] as string);
@@ -167,7 +172,7 @@ describe('BridgeManager', () => {
 
     it('rejects the matching pending call when error is set', async () => {
       const ws = createMockWs();
-      bridgeManager.register(ws);
+      bridgeManager.register(asWs(ws));
 
       const resultPromise = bridgeManager.callTool('filter', {});
       const { callId } = JSON.parse(ws.send.mock.calls[0][0] as string);
@@ -200,21 +205,21 @@ describe('handleMCPBridgeWebSocket', () => {
 
   it('sends a registered confirmation on receiving a register message', () => {
     const ws = createMockWs();
-    handleMCPBridgeWebSocket(ws as never);
+    handleMCPBridgeWebSocket(asWs(ws));
     ws.emit('message', Buffer.from(JSON.stringify({ type: 'register' })));
     expect(ws.send).toHaveBeenCalledWith(JSON.stringify({ type: 'registered' }));
   });
 
   it('marks the bridge as connected after a register message', () => {
     const ws = createMockWs();
-    handleMCPBridgeWebSocket(ws as never);
+    handleMCPBridgeWebSocket(asWs(ws));
     ws.emit('message', Buffer.from(JSON.stringify({ type: 'register' })));
     expect(bridgeManager.isConnected()).toBe(true);
   });
 
   it('forwards tool_result messages to handleToolResult, resolving pending calls', async () => {
     const ws = createMockWs();
-    handleMCPBridgeWebSocket(ws as never);
+    handleMCPBridgeWebSocket(asWs(ws));
     ws.emit('message', Buffer.from(JSON.stringify({ type: 'register' })));
 
     // Start a pending tool call; the send mock now has two calls:
@@ -234,13 +239,13 @@ describe('handleMCPBridgeWebSocket', () => {
 
   it('handles malformed JSON without throwing', () => {
     const ws = createMockWs();
-    handleMCPBridgeWebSocket(ws as never);
+    handleMCPBridgeWebSocket(asWs(ws));
     expect(() => ws.emit('message', Buffer.from('not json'))).not.toThrow();
   });
 
   it('handles WebSocket error events without throwing', () => {
     const ws = createMockWs();
-    handleMCPBridgeWebSocket(ws as never);
+    handleMCPBridgeWebSocket(asWs(ws));
     expect(() => ws.emit('error', new Error('conn reset'))).not.toThrow();
   });
 });
