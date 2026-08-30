@@ -33,18 +33,18 @@ describe('WebMCPIntegration', () => {
         });
 
         modelContextMock = {
-            provideContext: vi.fn()
+            registerTool: vi.fn().mockResolvedValue(undefined)
         };
-        (global.navigator as any).modelContext = modelContextMock;
+        (global.document as any).modelContext = modelContextMock;
     });
 
     afterEach(() => {
         vi.clearAllMocks();
-        delete (global.navigator as any).modelContext;
+        delete (global.document as any).modelContext;
     });
 
     it('handles missing modelContext safely', () => {
-        delete (global.navigator as any).modelContext;
+        delete (global.document as any).modelContext;
         const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
         render(
@@ -53,7 +53,7 @@ describe('WebMCPIntegration', () => {
             </MemoryRouter>
         );
 
-        expect(consoleSpy).toHaveBeenCalledWith('WebMCP not available (navigator.modelContext is undefined).');
+        expect(consoleSpy).toHaveBeenCalledWith('WebMCP not available (document.modelContext is undefined).');
         consoleSpy.mockRestore();
     });
 
@@ -64,9 +64,12 @@ describe('WebMCPIntegration', () => {
             </MemoryRouter>
         );
 
-        expect(modelContextMock.provideContext).toHaveBeenCalledTimes(1);
-        const tools = modelContextMock.provideContext.mock.calls[0][0].tools;
-        expect(tools).toHaveLength(9);
+        expect(modelContextMock.registerTool).toHaveBeenCalledTimes(9);
+        expect(modelContextMock.registerTool.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+        const triggerTool = modelContextMock.registerTool.mock.calls
+            .map(([tool]: [any]) => tool)
+            .find((tool: any) => tool.name === 'trigger_pipeline_execution');
+        expect(triggerTool.annotations.readOnlyHint).toBe(false);
     });
 
     describe('Tool Execution', () => {
@@ -77,8 +80,8 @@ describe('WebMCPIntegration', () => {
                     <WebMCPIntegration />
                 </MemoryRouter>
             );
-            const tools = modelContextMock.provideContext.mock.calls[0][0].tools;
-            return tools.find((t: any) => t.name === name);
+            const tools = modelContextMock.registerTool.mock.calls.map(([tool]: [any]) => tool);
+            return tools.find((tool: any) => tool.name === name);
         };
 
         it('view_home_dashboard navigates correctly', async () => {
@@ -86,7 +89,7 @@ describe('WebMCPIntegration', () => {
             const result = await tool.execute({ tab: 'datasets' });
 
             expect(mockNavigate).toHaveBeenCalledWith('/?tab=datasets');
-            expect(result.content[0].text).toContain('datasets');
+            expect(result).toContain('datasets');
         });
 
         it('search_global_catalog navigates correctly', async () => {
@@ -115,8 +118,8 @@ describe('WebMCPIntegration', () => {
             const result = await tool.execute({ id: 'p-1', tab: 'costs', dateRange: '7' });
 
             expect(mockNavigate).toHaveBeenCalledWith('/pipelines/p-1?tab=costs&dateRange=7');
-            expect(result.content[0].text).toContain('producedDatasets');
-            expect(result.content[0].text).toContain('150.5');
+            expect(result).toContain('producedDatasets');
+            expect(result).toContain('150.5');
         });
 
         it('view_pipeline_run_logs retrieves logs', async () => {
@@ -124,7 +127,7 @@ describe('WebMCPIntegration', () => {
             const result = await tool.execute({ pipelineId: 'p-1', runId: 'run-1' });
 
             expect(mockNavigate).toHaveBeenCalledWith('/pipelines/p-1?tab=runs&run=run-1');
-            expect(result.content[0].text).toContain('Test Log');
+            expect(result).toContain('Test Log');
         });
 
         it('analyze_infrastructure_costs navigates and computes aggregation correctly', async () => {
@@ -132,8 +135,8 @@ describe('WebMCPIntegration', () => {
             const result = await tool.execute({ dateRange: '30', search: 'compute' });
 
             expect(mockNavigate).toHaveBeenCalledWith('/costs?range=30&q=compute');
-            expect(result.content[0].text).toContain('150.50');
-            expect(result.content[0].text).toContain('Snowflake');
+            expect(result).toContain('150.50');
+            expect(result).toContain('Snowflake');
         });
     });
 });

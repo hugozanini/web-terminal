@@ -1,8 +1,31 @@
 import { useEffect, useRef } from 'react';
 import { useCatalogTools } from './useCatalogTools';
 
-// Registers data-portal tools on navigator.modelContext so they are
-// available when the page is opened inside claude.ai (Web MCP API).
+type ToolDefinition = {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  readOnlyHint?: boolean;
+  execute: (args: Record<string, unknown>) => ReturnType<ReturnType<typeof useCatalogTools>['executeTool']>;
+};
+
+type ModelContext = {
+  registerTool: (
+    tool: Omit<ToolDefinition, 'execute'> & {
+      annotations?: { readOnlyHint?: boolean };
+      execute: (args: Record<string, unknown>) => Promise<string>;
+    },
+    options: { signal: AbortSignal },
+  ) => Promise<void>;
+};
+
+declare global {
+  interface Document {
+    modelContext?: ModelContext;
+  }
+}
+
+// Registers data-portal tools using the current WebMCP imperative API.
 export function WebMCPIntegration() {
   const { executeTool } = useCatalogTools();
   const executeToolRef = useRef(executeTool);
@@ -12,14 +35,14 @@ export function WebMCPIntegration() {
   });
 
   useEffect(() => {
-    const modelContext = (navigator as unknown as { modelContext?: { provideContext: (ctx: unknown) => void } }).modelContext;
+    const modelContext = document.modelContext;
     if (!modelContext) {
-      console.warn('WebMCP not available (navigator.modelContext is undefined).');
+      console.warn('WebMCP not available (document.modelContext is undefined).');
       return;
     }
 
-    modelContext.provideContext({
-      tools: [
+    const registration = new AbortController();
+    const tools: ToolDefinition[] = [
         {
           name: 'view_home_dashboard',
           description:
@@ -196,6 +219,7 @@ export function WebMCPIntegration() {
         },
         {
           name: 'trigger_pipeline_execution',
+          readOnlyHint: false,
           description:
             'Trigger a new pipeline run on staging or production. ' +
             'Returns the runId. Wait ~10 seconds then call view_pipeline_details (tab=runs) to confirm status.',
@@ -240,8 +264,29 @@ export function WebMCPIntegration() {
           execute: (args: Record<string, unknown>) =>
             executeToolRef.current('analyze_infrastructure_costs', args),
         },
-      ],
+    ];
+
+    void Promise.all(
+      tools.map(({ readOnlyHint = true, ...tool }) =>
+        modelContext.registerTool(
+          {
+            ...tool,
+            annotations: { readOnlyHint },
+            execute: async (args) => {
+              const result = await tool.execute(args);
+              return result.content.map((item) => item.text).join('\n');
+            },
+          },
+          { signal: registration.signal },
+        ),
+      ),
+    ).catch((error: unknown) => {
+      if (!registration.signal.aborted) {
+        console.warn('Unable to register WebMCP tools.', error);
+      }
     });
+
+    return () => registration.abort();
   }, []);
 
   return null;
